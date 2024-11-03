@@ -208,7 +208,7 @@ def retrieval_qa_pipline_retriever_modified(device_type, use_history, promptTemp
     # Use map_reduce to combine relevant documents into one response
     qa = RetrievalQA.from_chain_type(
         llm=llm,
-        chain_type="map_reduce",  # Use map_reduce for better context aggregation
+        chain_type="refine",  # Use map_reduce for better context aggregation
         retriever=retriever,
         return_source_documents=True,
         callbacks=callback_manager,
@@ -379,7 +379,7 @@ def main(device_type, show_sources, use_history, model_type, save_qa):
     if not os.path.exists(MODELS_PATH):
         os.mkdir(MODELS_PATH)
 
-    qa = retrieval_qa_pipline(device_type, use_history, promptTemplate_type=model_type)
+    qa = retrieval_qa_pipline_retriever_modified(device_type, use_history, promptTemplate_type=model_type)
     # Interactive questions and answers
 
     # test_sample_query_offical(qa)
