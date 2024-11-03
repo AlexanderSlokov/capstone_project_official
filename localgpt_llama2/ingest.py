@@ -142,9 +142,9 @@ def main(device_type):
         logging.error("Document split failed or resulted in no usable documents.")
         return  # Exit if splitting documents resulted in empty lists
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
     python_splitter = RecursiveCharacterTextSplitter.from_language(
-        language=Language.PYTHON, chunk_size=880, chunk_overlap=200
+        language=Language.PYTHON, chunk_size=500, chunk_overlap=100
     )
 
     texts = text_splitter.split_documents(text_documents)

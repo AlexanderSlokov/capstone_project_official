@@ -29,12 +29,14 @@ CHROMA_SETTINGS = Settings(
 
 # Context Window and Max New Tokens
 CONTEXT_WINDOW_SIZE = 4096
-MAX_NEW_TOKENS = 512
+MAX_NEW_TOKENS = 640
 
 # If you get a "not enough space in the buffer" error, you should reduce the values below,
 # start with half of the original values and keep halving the value until the error stops appearing
-
-N_GPU_LAYERS = 20  # Điều chỉnh số lượng layer GPU theo khả năng của card đồ họa
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4"
+MODEL_BASENAME = "model.safetensors"
+EMBEDDING_MODEL_NAME = "hkunlp/instructor-large"  # Uses 0.5 GB of VRAM (A good model for lower VRAM GPUs)
+N_GPU_LAYERS = 28  # Điều chỉnh số lượng layer GPU theo khả năng của card đồ họa
 N_BATCH = 512  # Điều chỉnh kích thước batch size phù hợp với dung lượng VRAM
 
 # From experimenting with the Llama-2-7B-Chat-GGML model on 8GB VRAM, these values work:
@@ -45,7 +47,7 @@ N_BATCH = 512  # Điều chỉnh kích thước batch size phù hợp với dung
 # https://python.langchain.com/en/latest/_modules/langchain/document_loaders/excel.html#UnstructuredExcelLoader
 DOCUMENT_MAP = {
     ".html": UnstructuredHTMLLoader,
-    ".txt": TextLoader,
+    ".txt": UnstructuredFileLoader,
     ".md": UnstructuredMarkdownLoader,
     ".py": TextLoader,
     # ".pdf": PDFMinerLoader,
@@ -64,9 +66,9 @@ DOCUMENT_MAP = {
 #### OTHER EMBEDDING MODEL OPTIONS
 ####
 
-EMBEDDING_MODEL_NAME = "hkunlp/instructor-xl" # Uses 5 GB of VRAM (Most Accurate of all models)
+# EMBEDDING_MODEL_NAME = "hkunlp/instructor-xl"  # Uses 5 GB of VRAM (Most Accurate of all models)
 # EMBEDDING_MODEL_NAME = "intfloat/e5-large-v2" # Uses 1.5 GB of VRAM (A little less accurate than instructor-large)
-# EMBEDDING_MODEL_NAME = "intfloat/e5-base-v2" # Uses 0.5 GB of VRAM (A good model for lower VRAM GPUs)
+
 # (Less accurate but fastest - only requires 150mb of vram)
 # EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2" # Uses 0.2 GB of VRAM
 
@@ -104,8 +106,8 @@ EMBEDDING_MODEL_NAME = "hkunlp/instructor-xl" # Uses 5 GB of VRAM (Most Accurate
 # MODEL_ID = "TheBloke/Llama-2-7b-Chat-GGUF"
 # MODEL_BASENAME = "llama-2-7b-chat.Q4_K_M.gguf"
 
-MODEL_ID = "TheBloke/Llama-2-7b-Chat-GPTQ"
-MODEL_BASENAME = "model.safetensors"
+# MODEL_ID = "TheBloke/Llama-2-7b-Chat-GPTQ"
+# MODEL_BASENAME = "model.safetensors"
 
 # Đặt MODEL_ID và MODEL_BASENAME cho phiên bản GPTQ 4-bit hoặc 8-bit đã chọn
 # MODEL_ID = "TheBloke/law-chat-GPTQ"

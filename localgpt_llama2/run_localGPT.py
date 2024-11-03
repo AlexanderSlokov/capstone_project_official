@@ -1,21 +1,21 @@
-import os
 import logging
-import click
-import torch
-import utils
-import nltk
-
-# thư viện cho các chỉ số đánh giá
-
-from nltk.translate.bleu_score import sentence_bleu
-from sklearn.metrics import precision_recall_fscore_support
+import os
 from typing import List
 
+import click
+import nltk
+import torch
+from langchain.callbacks.manager import CallbackManager
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler  # for streaming response
 from langchain.chains import RetrievalQA
 # from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.llms import HuggingFacePipeline
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler  # for streaming response
-from langchain.callbacks.manager import CallbackManager
+from nltk.translate.bleu_score import sentence_bleu
+from sklearn.metrics import precision_recall_fscore_support
+
+import utils
+
+# thư viện cho các chỉ số đánh giá
 
 callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
 
@@ -97,7 +97,7 @@ def load_model(device_type, model_id, model_basename=None, LOGGING=logging):
         max_new_tokens=MAX_NEW_TOKENS,
         do_sample=True,
         temperature=0.7,
-        top_p=0.95,
+        top_p=0.9,
         top_k=40,
         repetition_penalty=1.1,
         generation_config=generation_config,
@@ -109,7 +109,7 @@ def load_model(device_type, model_id, model_basename=None, LOGGING=logging):
     return local_llm
 
 
-def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="llama"):
+def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="qwen"):
     """
     Initializes and returns a retrieval-based Question Answering (QA) pipeline.
 
@@ -141,39 +141,79 @@ def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="llama"):
     """
 
     embeddings = get_embeddings(device_type)
-
     logging.info(f"Loaded embeddings from {EMBEDDING_MODEL_NAME}")
 
-    # load the vectorstore
+    # Load the vectorstore
     db = Chroma(persist_directory=PERSIST_DIRECTORY, embedding_function=embeddings, client_settings=CHROMA_SETTINGS)
     retriever = db.as_retriever()
 
-    # get the prompt template and memory if set by the user.
+    # Get the prompt template and memory if set by the user.
     prompt, memory = get_prompt_template(promptTemplate_type=promptTemplate_type, history=use_history)
 
-    # load the llm pipeline
+    # Load the LLM pipeline
     llm = load_model(device_type, model_id=MODEL_ID, model_basename=MODEL_BASENAME, LOGGING=logging)
 
+    # Load the QA chain with map_reduce if needed
     if use_history:
         qa = RetrievalQA.from_chain_type(
             llm=llm,
             chain_type="stuff",  # try other chains types as well. refine, map_reduce, map_rerank
             retriever=retriever,
-            return_source_documents=True,  # verbose=True,
+            return_source_documents=True,
             callbacks=callback_manager,
             chain_type_kwargs={"prompt": prompt, "memory": memory},
         )
     else:
         qa = RetrievalQA.from_chain_type(
             llm=llm,
-            chain_type="stuff",  # try other chains types as well. refine, map_reduce, map_rerank
+            chain_type="map_reduce",  # Thay đổi thành "map_reduce" để thử nghiệm
             retriever=retriever,
-            return_source_documents=True,  # verbose=True,
+            return_source_documents=True,
             callbacks=callback_manager,
             chain_type_kwargs={
-                "prompt": prompt,
+                "memory": memory,
             },
         )
+
+    return qa
+
+
+def retrieval_qa_pipline_retriever_modified(device_type, use_history, promptTemplate_type="qwen"):
+    embeddings = get_embeddings(device_type)
+    logging.info(f"Loaded embeddings from {EMBEDDING_MODEL_NAME}")
+
+    # Load the vectorstore with additional retrieval settings
+    db = Chroma(
+        persist_directory=PERSIST_DIRECTORY,
+        embedding_function=embeddings,
+        client_settings=CHROMA_SETTINGS
+    )
+
+    # Configure retriever with top_k, similarity search, and potential filtering
+    # search_query = "Điều 123"  # Example search term
+    retriever = db.as_retriever(
+        search_kwargs={
+            "k": 5,  # Retrieve top 5 documents
+            # "filter": lambda doc: search_query in doc.page_content
+        },
+        search_type="similarity"  # Use similarity search
+    )
+
+    # Get the prompt template and memory if set by the user.
+    prompt, memory = get_prompt_template(promptTemplate_type=promptTemplate_type, history=use_history)
+
+    # Load the LLM pipeline
+    llm = load_model(device_type, model_id=MODEL_ID, model_basename=MODEL_BASENAME, LOGGING=logging)
+
+    # Use map_reduce to combine relevant documents into one response
+    qa = RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="map_reduce",  # Use map_reduce for better context aggregation
+        retriever=retriever,
+        return_source_documents=True,
+        callbacks=callback_manager,
+        chain_type_kwargs={"memory": memory},
+    )
 
     return qa
 
@@ -226,8 +266,9 @@ def test_sample_query_offical(qa):
         qa (RetrievalQA): Hệ thống QA đã được khởi tạo.
     """
     # Câu hỏi mẫu và câu trả lời tham chiếu bằng tiếng Việt
-    query_vi = ("Điều 123 của Bộ luật Hình sự Việt Nam năm 2015 quy định như thế nào về tội giết người và các tình tiết "
-                "tăng nặng liên quan đến tội này?")
+    query_vi = (
+        "Điều 123 của Bộ luật Hình sự Việt Nam năm 2015 quy định như thế nào về tội giết người và các tình tiết "
+        "tăng nặng liên quan đến tội này?")
     reference_answer = """
    Based on the provided context, I can provide information on the relevant laws and regulations in Vietnam related to murder and related offenses. According to Article 123 of the 2015 Criminal Code of Vietnam, whoever commits murder shall be punished with imprisonment from 15 years to life imprisonment or death penalty.
 Additionally, according to Article 124 of the same code, whoever abets or assists in the commission of murder shall be punished with imprisonment from 10 years to 15 years or fine from VND 50 million to VND 100 million (approximately USD 2,200 to USD 4,400).
