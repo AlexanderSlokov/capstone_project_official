@@ -166,11 +166,12 @@ def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="qwen"):
     else:
         qa = RetrievalQA.from_chain_type(
             llm=llm,
-            chain_type="map_reduce",  # Thay đổi thành "map_reduce" để thử nghiệm
+            chain_type="stuff",  # Thay đổi thành "map_reduce" để thử nghiệm
             retriever=retriever,
             return_source_documents=True,
             callbacks=callback_manager,
             chain_type_kwargs={
+                "prompt": prompt,
                 "memory": memory,
             },
         )
@@ -178,24 +179,29 @@ def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="qwen"):
     return qa
 
 
-def retrieval_qa_pipline_retriever_modified(device_type, use_history, promptTemplate_type="qwen"):
+# Hàm tăng cường câu truy vấn với từ khóa
+def generate_enhanced_query(query):
+    # Các từ khóa quan trọng để tìm kiếm điều luật
+    keywords = ["Nghị định 75"]
+    # Tạo truy vấn mới bằng cách kết hợp từ khóa vào câu truy vấn gốc
+    enhanced_query = query + " " + " ".join(keywords)
+    return enhanced_query
+
+
+def retrieval_qa_pipline_with_keyword(device_type, use_history, promptTemplate_type="qwen"):
     embeddings = get_embeddings(device_type)
     logging.info(f"Loaded embeddings from {EMBEDDING_MODEL_NAME}")
 
-    # Load the vectorstore with additional retrieval settings
+    # Load the vectorstore
     db = Chroma(
         persist_directory=PERSIST_DIRECTORY,
         embedding_function=embeddings,
         client_settings=CHROMA_SETTINGS
     )
 
-    # Configure retriever with top_k, similarity search, and potential filtering
-    # search_query = "Điều 123"  # Example search term
+    # Configure retriever with top_k and similarity search
     retriever = db.as_retriever(
-        search_kwargs={
-            "k": 5,  # Retrieve top 5 documents
-            # "filter": lambda doc: search_query in doc.page_content
-        },
+        search_kwargs={"k": 10},  # Retrieve top 10 documents
         search_type="similarity"  # Use similarity search
     )
 
@@ -205,10 +211,10 @@ def retrieval_qa_pipline_retriever_modified(device_type, use_history, promptTemp
     # Load the LLM pipeline
     llm = load_model(device_type, model_id=MODEL_ID, model_basename=MODEL_BASENAME, LOGGING=logging)
 
-    # Use map_reduce to combine relevant documents into one response
+    # Define QA chain
     qa = RetrievalQA.from_chain_type(
         llm=llm,
-        chain_type="refine",  # Use map_reduce for better context aggregation
+        chain_type="stuff",
         retriever=retriever,
         return_source_documents=True,
         callbacks=callback_manager,
@@ -370,43 +376,44 @@ def main(device_type, show_sources, use_history, model_type, save_qa):
     - The source documents are displayed if the show_sources flag is set to True.
 
     """
-
     logging.info(f"Running on: {device_type}")
     logging.info(f"Display Source Documents set to: {show_sources}")
     logging.info(f"Use history set to: {use_history}")
 
-    # check if models directory do not exist, create a new one and store models here.
     if not os.path.exists(MODELS_PATH):
         os.mkdir(MODELS_PATH)
 
-    qa = retrieval_qa_pipline_retriever_modified(device_type, use_history, promptTemplate_type=model_type)
-    # Interactive questions and answers
-
-    # test_sample_query_offical(qa)
+    # Khởi tạo QA pipeline với bộ lọc và từ khóa
+    qa = retrieval_qa_pipline_with_keyword(device_type, use_history, promptTemplate_type=model_type)
 
     while True:
+        # Nhập truy vấn từ người dùng
         query = input("\nEnter a query: ")
         if query == "exit":
             break
-        # Get the answer from the chain
-        res = qa(query)
+
+        # Tăng cường truy vấn với từ khóa
+        enhanced_query = generate_enhanced_query(query)
+
+        # Gọi truy vấn ban đầu với từ khóa đã thêm
+        res = qa(enhanced_query)
+
+        # Kết quả và tài liệu
         answer, docs = res["result"], res["source_documents"]
 
-        # Print the result
         print("\n\n> Question:")
         print(query)
         print("\n> Answer:")
         print(answer)
 
-        if show_sources:  # this is a flag that you can set to disable showing answers.
-            # # Print the relevant sources used for the answer
+        if show_sources:
             print("----------------------------------SOURCE DOCUMENTS---------------------------")
             for document in docs:
                 print("\n> " + document.metadata["source"] + ":")
                 print(document.page_content)
             print("----------------------------------SOURCE DOCUMENTS---------------------------")
 
-        # Log the Q&A to CSV only if save_qa is True
+        # Lưu lại Q&A vào CSV nếu cần
         if save_qa:
             utils.log_to_csv(query, answer)
 

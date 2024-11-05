@@ -133,18 +133,25 @@ def main(device_type):
     # Load documents and split in chunks
     logging.info(f"Loading documents from {SOURCE_DIRECTORY}")
     documents = load_documents(SOURCE_DIRECTORY)
+
+    # Giới hạn độ dài của tài liệu: giữ lại tối đa 30,000 ký tự (khoảng 10 trang A4)
+    for document in documents:
+        if len(document.page_content) > 30000:
+            document.page_content = document.page_content[:30000]
+            logging.info(f"Trimmed document to 30,000 characters")
+
     if not documents:
         logging.error("No documents loaded. Check the source directory and file formats.")
         return  # Exit if no documents are loaded
-
     text_documents, python_documents = split_documents(documents)
     if not text_documents and not python_documents:
         logging.error("Document split failed or resulted in no usable documents.")
         return  # Exit if splitting documents resulted in empty lists
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=100)
+        # Tăng chunk_size và giảm chunk_overlap để giảm số lượng chunk
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     python_splitter = RecursiveCharacterTextSplitter.from_language(
-        language=Language.PYTHON, chunk_size=500, chunk_overlap=100
+        language=Language.PYTHON, chunk_size=1000, chunk_overlap=200
     )
 
     texts = text_splitter.split_documents(text_documents)
@@ -156,6 +163,13 @@ def main(device_type):
 
     logging.info(f"Loaded {len(documents)} documents from {SOURCE_DIRECTORY}")
     logging.info(f"Split into {len(texts)} chunks of text")
+
+    # In ra vài chunk để kiểm tra xem có cắt chuẩn không
+    num_samples = 5  # Số lượng chunk muốn xem thử
+    logging.info(f"Displaying {num_samples} sample chunks:")
+
+    for i, chunk in enumerate(texts[:num_samples]):
+        logging.info(f"\n--- Chunk {i + 1} ---\n{chunk.page_content}\n")
 
     logging.info(f"Embedding model being used: {EMBEDDING_MODEL_NAME}")
     embeddings = get_embeddings(device_type)
