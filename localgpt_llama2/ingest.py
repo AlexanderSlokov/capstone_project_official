@@ -8,7 +8,7 @@ from langchain.text_splitter import Language, RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
 from utils import get_embeddings
 
-from constants import (
+from configurations import (
     CHROMA_SETTINGS,
     DOCUMENT_MAP,
     EMBEDDING_MODEL_NAME,
@@ -148,7 +148,7 @@ def main(device_type):
         logging.error("Document split failed or resulted in no usable documents.")
         return  # Exit if splitting documents resulted in empty lists
 
-        # Tăng chunk_size và giảm chunk_overlap để giảm số lượng chunk
+    # Tăng chunk_size và giảm chunk_overlap để giảm số lượng chunk
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     python_splitter = RecursiveCharacterTextSplitter.from_language(
         language=Language.PYTHON, chunk_size=1000, chunk_overlap=200

@@ -31,7 +31,7 @@ from load_models import (
 )
 
 # Định nghĩa các hằng số (constants) sử dụng trong toàn bộ chương trình
-from constants import (
+from configurations import (
     EMBEDDING_MODEL_NAME,
     PERSIST_DIRECTORY,
     MODEL_ID,

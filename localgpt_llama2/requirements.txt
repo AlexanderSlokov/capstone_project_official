@@ -18,7 +18,7 @@
 
 #pip install autoawq==0.1.5
 
-#pip install auto-gptq --extra-index-url https://huggingface.github.io/autogptq-index/whl/cu118/
+#pip install "git+https://github.com/PanQiWei/AutoGPTQ.git@v0.4.2"
 
 # Natural Language Processing
 langchain==0.0.267

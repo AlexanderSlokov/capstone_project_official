@@ -215,3 +215,4 @@ Khởi động lại `PowerShell` hoặc `cmd` để đảm bảo rằng các th
 
 Các bước trên sẽ giúp bạn cài đặt `llama-cpp-python` với CUDA trong môi trường `PowerShell` hoặc `cmd` trên Windows 11. Nếu gặp bất kỳ vấn đề gì trong quá trình thực hiện, hãy gửi lại thông báo lỗi để mình hỗ trợ thêm nhé!
 
+

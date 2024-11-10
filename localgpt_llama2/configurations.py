@@ -35,7 +35,7 @@ MAX_NEW_TOKENS = 512
 # start with half of the original values and keep halving the value until the error stops appearing
 MODEL_ID = "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4"
 MODEL_BASENAME = "model.safetensors"
-EMBEDDING_MODEL_NAME = "hkunlp/instructor-large"  # Uses 0.5 GB of VRAM (A good model for lower VRAM GPUs)
+EMBEDDING_MODEL_NAME = "hkunlp/instructor-large"
 N_GPU_LAYERS = 28  # Điều chỉnh số lượng layer GPU theo khả năng của card đồ họa
 N_BATCH = 512  # Điều chỉnh kích thước batch size phù hợp với dung lượng VRAM
 
@@ -181,7 +181,7 @@ DOCUMENT_MAP = {
 # MODEL_BASENAME = "WizardLM-7B-uncensored-GPTQ-4bit-128g.compat.no-act-order.safetensors"
 # MODEL_ID = "TheBloke/wizardLM-7B-GPTQ"
 # MODEL_BASENAME = "wizardLM-7B-GPTQ-4bit.compat.no-act-order.safetensors"
-# Trong file constants.py, bạn tìm phần định nghĩa MODEL_ID và MODEL_BASENAME như sau:
+# Trong file configurations.py, bạn tìm phần định nghĩa MODEL_ID và MODEL_BASENAME như sau:
 
 
 ####

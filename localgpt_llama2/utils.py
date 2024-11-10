@@ -1,7 +1,7 @@
 import os
 import csv
 from datetime import datetime
-from constants import EMBEDDING_MODEL_NAME
+from configurations import EMBEDDING_MODEL_NAME
 from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.embeddings import HuggingFaceBgeEmbeddings
 from langchain.embeddings import HuggingFaceEmbeddings

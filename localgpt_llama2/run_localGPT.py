@@ -36,7 +36,7 @@ from load_models import (
     load_full_model,
 )
 
-from constants import (
+from configurations import (
     EMBEDDING_MODEL_NAME,
     PERSIST_DIRECTORY,
     MODEL_ID,
@@ -182,7 +182,7 @@ def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="qwen"):
 # Hàm tăng cường câu truy vấn với từ khóa
 def generate_enhanced_query(query):
     # Các từ khóa quan trọng để tìm kiếm điều luật
-    keywords = ["Nghị định 75"]
+    keywords = ["Khái niệm tội phạm", "Điều 8"]
     # Tạo truy vấn mới bằng cách kết hợp từ khóa vào câu truy vấn gốc
     enhanced_query = query + " " + " ".join(keywords)
     return enhanced_query
@@ -218,7 +218,7 @@ def retrieval_qa_pipline_with_keyword(device_type, use_history, promptTemplate_t
         retriever=retriever,
         return_source_documents=True,
         callbacks=callback_manager,
-        chain_type_kwargs={"memory": memory},
+        chain_type_kwargs={"prompt": prompt, "memory": memory}
     )
 
     return qa

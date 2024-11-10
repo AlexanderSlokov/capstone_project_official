@@ -3,7 +3,7 @@ import shutil
 import click
 import subprocess
 
-from constants import (
+from configurations import (
     DOCUMENT_MAP,
     SOURCE_DIRECTORY
 )

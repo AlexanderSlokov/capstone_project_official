@@ -7,7 +7,7 @@ antlr4-python3-runtime==4.9.3
 anyio==4.6.0
 async-timeout==4.0.3
 attrs==24.2.0
-auto_gptq==0.7.1
+auto_gptq @ git+https://github.com/PanQiWei/AutoGPTQ.git@b8b41270f3dd5d657aee049d7b64538ab5dd244e
 autoawq==0.2.6
 autoawq_kernels==0.0.7
 backoff==2.2.1

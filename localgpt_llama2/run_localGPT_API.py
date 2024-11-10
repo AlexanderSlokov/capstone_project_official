@@ -17,7 +17,7 @@ from prompt_template_utils import get_prompt_template
 from langchain.vectorstores import Chroma
 from werkzeug.utils import secure_filename
 
-from constants import CHROMA_SETTINGS, EMBEDDING_MODEL_NAME, PERSIST_DIRECTORY, MODEL_ID, MODEL_BASENAME
+from configurations import CHROMA_SETTINGS, EMBEDDING_MODEL_NAME, PERSIST_DIRECTORY, MODEL_ID, MODEL_BASENAME
 
 # API queue addition
 from threading import Lock
