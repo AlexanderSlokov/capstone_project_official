@@ -18,6 +18,8 @@
 
 #pip install autoawq==0.1.5
 
+#pip install "git+https://github.com/PanQiWei/AutoGPTQ.git@v0.7.1"
+
 #pip install "git+https://github.com/PanQiWei/AutoGPTQ.git@v0.4.2"
 
 # Natural Language Processing
