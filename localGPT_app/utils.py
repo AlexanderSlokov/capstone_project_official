@@ -1,7 +1,7 @@
 import os
 import csv
 from datetime import datetime
-from localgpt_llama2.config.configurations import EMBEDDING_MODEL_NAME
+from config.configurations import EMBEDDING_MODEL_NAME
 from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.embeddings import HuggingFaceBgeEmbeddings
 from langchain.embeddings import HuggingFaceEmbeddings

@@ -1,50 +1,38 @@
+# Built-in modules
 import logging
 import os
-from typing import List
 
+# Third-party modules
 import click
-import nltk
 import torch
+from langchain import HuggingFacePipeline
 from langchain.callbacks.manager import CallbackManager
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler  # for streaming response
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.chains import RetrievalQA
-# from langchain.embeddings import HuggingFaceInstructEmbeddings
-from langchain.llms import HuggingFacePipeline
-from nltk.translate.bleu_score import sentence_bleu
-from sklearn.metrics import precision_recall_fscore_support
-
-import utils
-
-# thư viện cho các chỉ số đánh giá
-
-callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
-
-from prompt_template_utils import get_prompt_template
-from utils import get_embeddings
-
-# from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.vectorstores import Chroma
-from transformers import (
-    GenerationConfig,
-    pipeline,
-)
+from transformers import GenerationConfig, pipeline
 
-from load_models import (
+# Local modules
+from localGPT_app.load_models import (
+    load_full_model,
     load_quantized_model_awq,
     load_quantized_model_gguf_ggml,
     load_quantized_model_qptq,
-    load_full_model,
 )
-
-from localgpt_llama2.config.configurations import (
-    EMBEDDING_MODEL_NAME,
-    PERSIST_DIRECTORY,
-    MODEL_ID,
-    MODEL_BASENAME,
-    MAX_NEW_TOKENS,
-    MODELS_PATH,
+from localGPT_app.utils import get_embeddings, log_to_csv
+from config.configurations import (
     CHROMA_SETTINGS,
+    EMBEDDING_MODEL_NAME,
+    MAX_NEW_TOKENS,
+    MODEL_BASENAME,
+    MODEL_ID,
+    MODELS_PATH,
+    PERSIST_DIRECTORY,
 )
+from localGPT_app.prompt_template_utils import get_prompt_template
+
+# Callback manager (initialization logic)
+callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
 
 
 def load_model(device_type, model_id, model_basename=None, LOGGING=logging):
@@ -123,17 +111,15 @@ def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="qwen"):
     Returns:
     - RetrievalQA: An initialized retrieval-based QA system.
 
-    Notes:
-    - The function uses embeddings from the HuggingFace library, either instruction-based or regular.
-    - The Chroma class is used to load a vector store containing pre-computed embeddings.
-    - The retriever fetches relevant documents or data based on a query.
-    - The prompt and memory, obtained from the `get_prompt_template` function, might be used in the QA system.
-    - The model is loaded onto the specified device using its ID and basename.
-    - The QA system retrieves relevant documents using the retriever and then answers questions based on those documents.
+    Notes: - The function uses embeddings from the HuggingFace library, either instruction-based or regular. - The
+    Chroma class is used to load a vector store containing pre-computed embeddings. - The retriever fetches relevant
+    documents or data based on a query. - The prompt and memory, obtained from the `get_prompt_template` function,
+    might be used in the QA system. - The model is loaded onto the specified device using its ID and basename. - The
+    QA system retrieves relevant documents using the retriever and then answers questions based on those documents.
     """
 
-    """
-    (1) Chooses an appropriate langchain library based on the enbedding model name.  Matching code is contained within ingest.py.
+    """(1) Chooses an appropriate langchain library based on the enbedding model name.  Matching code is contained
+    within ingest.py.
 
     (2) Provides additional arguments for instructor and BGE models to improve results,
     pursuant to the instructions contained on
@@ -166,7 +152,7 @@ def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="qwen"):
     else:
         qa = RetrievalQA.from_chain_type(
             llm=llm,
-            chain_type="stuff",  # Thay đổi thành "map_reduce" để thử nghiệm
+            chain_type="stuff",
             retriever=retriever,
             return_source_documents=True,
             callbacks=callback_manager,
@@ -177,16 +163,6 @@ def retrieval_qa_pipline(device_type, use_history, promptTemplate_type="qwen"):
         )
 
     return qa
-
-
-# Hàm tăng cường câu truy vấn với từ khóa
-def generate_enhanced_query(query):
-    # Các từ khóa quan trọng để tìm kiếm điều luật
-    keywords = ["Khái niệm tội phạm", "Điều 8"]
-    # Tạo truy vấn mới bằng cách kết hợp từ khóa vào câu truy vấn gốc
-    enhanced_query = query + " " + " ".join(keywords)
-    return enhanced_query
-
 
 def retrieval_qa_pipline_with_keyword(device_type, use_history, promptTemplate_type="qwen"):
     embeddings = get_embeddings(device_type)
@@ -222,83 +198,6 @@ def retrieval_qa_pipline_with_keyword(device_type, use_history, promptTemplate_t
     )
 
     return qa
-
-
-def calculate_metrics(predicted_answer: str, reference_answer: str, k_retrieved: List[str]) -> dict:
-    """
-    Tính toán các chỉ số đánh giá như BLEU, Recall@k, MRR và F1 Score.
-
-    Args:
-        predicted_answer (str): Câu trả lời được sinh ra bởi mô hình.
-        reference_answer (str): Câu trả lời đúng hoặc câu trả lời chuẩn.
-        k_retrieved (List[str]): Danh sách các tài liệu trả về (top k tài liệu).
-
-    Returns:
-        dict: Các chỉ số đánh giá được tính toán.
-    """
-    # Tính BLEU Score
-    reference = [nltk.word_tokenize(reference_answer.lower())]  # Đưa về dạng từ viết thường
-    candidate = nltk.word_tokenize(predicted_answer.lower())
-    bleu_score = sentence_bleu(reference, candidate)
-
-    # Tính Recall@k: Tỷ lệ tài liệu khớp với câu trả lời chuẩn trong top k tài liệu
-    relevant_retrieved = sum([1 for doc in k_retrieved if reference_answer in doc])
-    recall_at_k = relevant_retrieved / len(k_retrieved) if len(k_retrieved) > 0 else 0.0
-
-    # Tính Mean Reciprocal Rank (MRR)
-    mrr = 0.0
-    for rank, doc in enumerate(k_retrieved, 1):
-        if reference_answer in doc:
-            mrr = 1 / rank
-            break
-
-    # Tính Precision, Recall và F1 Score
-    precision, recall, f1, _ = precision_recall_fscore_support([reference_answer], [predicted_answer], average='macro')
-
-    # Trả về các chỉ số
-    return {
-        'BLEU': bleu_score,
-        'Recall@k': recall_at_k,
-        'MRR': mrr,
-        'F1 Score': f1
-    }
-
-
-def test_sample_query_offical(qa):
-    """
-    Hàm để kiểm tra hệ thống QA với câu hỏi mẫu và câu trả lời tham chiếu.
-
-    Args:
-        qa (RetrievalQA): Hệ thống QA đã được khởi tạo.
-    """
-    # Câu hỏi mẫu và câu trả lời tham chiếu bằng tiếng Việt
-    query_vi = (
-        "Điều 123 của Bộ luật Hình sự Việt Nam năm 2015 quy định như thế nào về tội giết người và các tình tiết "
-        "tăng nặng liên quan đến tội này?")
-    reference_answer = """
-   Based on the provided context, I can provide information on the relevant laws and regulations in Vietnam related to murder and related offenses. According to Article 123 of the 2015 Criminal Code of Vietnam, whoever commits murder shall be punished with imprisonment from 15 years to life imprisonment or death penalty.
-Additionally, according to Article 124 of the same code, whoever abets or assists in the commission of murder shall be punished with imprisonment from 10 years to 15 years or fine from VND 50 million to VND 100 million (approximately USD 2,200 to USD 4,400).
-It is important to note that these provisions are subject to change and may have additional requirements or exceptions as specified in the law. Therefore, it is recommended to consult with legal professionals or seek advice from competent authorities for further clarification.
-
-    """
-
-    # Gọi hệ thống QA trực tiếp với câu hỏi tiếng Việt
-    res = qa(query_vi)
-    answer_vi = res["result"]
-
-    # In ra kết quả
-    print("\n> Câu hỏi (Tiếng Việt):")
-    print(query_vi)
-    print("\n> Câu trả lời (Tiếng Việt):")
-    print(answer_vi)
-
-    # Gọi hàm đánh giá với câu trả lời đã sinh ra từ mô hình
-    benchmark_metrics = calculate_metrics(predicted_answer=answer_vi, reference_answer=reference_answer,
-                                          k_retrieved=[doc.page_content for doc in res["source_documents"]])
-
-    print(
-        f"\n> Các chỉ số đánh giá:\nBLEU: {benchmark_metrics['BLEU']}\nRecall@k: {benchmark_metrics['Recall@k']}\nMRR: "
-        f"{benchmark_metrics['MRR']}\nF1 Score: {benchmark_metrics['F1 Score']}")
 
 
 # chose device typ to run on as well as to show source documents.
@@ -374,7 +273,6 @@ def main(device_type, show_sources, use_history, model_type, save_qa):
     - If the models directory does not exist, it creates a new one to store models.
     - The user can exit the interactive loop by entering "exit".
     - The source documents are displayed if the show_sources flag is set to True.
-
     """
     logging.info(f"Running on: {device_type}")
     logging.info(f"Display Source Documents set to: {show_sources}")
@@ -388,14 +286,21 @@ def main(device_type, show_sources, use_history, model_type, save_qa):
 
     while True:
         # Nhập truy vấn từ người dùng
-        query = input("\nEnter a query: ")
-        if query == "exit":
+        query = input("\nEnter a query (or type 'exit' to quit): ")
+        if query.lower() == "exit":
             break
 
-        # Tăng cường truy vấn với từ khóa
-        enhanced_query = generate_enhanced_query(query)
+        # Nhập từ khóa bổ sung, cách nhau bởi dấu phẩy
+        keywords_input = input("\nEnter additional keywords separated by commas (optional, press Enter to skip): ").strip()
+        if keywords_input:
+            # Xử lý từ khóa: tách từ khóa dựa trên dấu phẩy và xóa khoảng trắng thừa
+            additional_keywords = [kw.strip() for kw in keywords_input.split(",")]
+            # Thêm các từ khóa vào truy vấn ban đầu
+            enhanced_query = query + " " + " ".join(additional_keywords)
+        else:
+            enhanced_query = query  # Nếu không có từ khóa, sử dụng truy vấn gốc
 
-        # Gọi truy vấn ban đầu với từ khóa đã thêm
+        # Gọi truy vấn với từ khóa bổ sung (nếu có)
         res = qa(enhanced_query)
 
         # Kết quả và tài liệu
@@ -415,7 +320,7 @@ def main(device_type, show_sources, use_history, model_type, save_qa):
 
         # Lưu lại Q&A vào CSV nếu cần
         if save_qa:
-            utils.log_to_csv(query, answer)
+            log_to_csv(query, answer)
 
 
 if __name__ == "__main__":

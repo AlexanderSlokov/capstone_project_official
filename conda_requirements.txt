@@ -270,4 +270,3 @@ xz                        5.4.6                h8cc25b3_1
 yarl                      1.13.1                   pypi_0    pypi
 zlib                      1.2.13               h8cc25b3_1  
 zstandard                 0.23.0                   pypi_0    pypi
-[0m

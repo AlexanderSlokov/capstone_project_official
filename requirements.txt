@@ -53,8 +53,3 @@ streamlit-extras
 
 # Excel File Manipulation
 openpyxl
-
-# Machine Learning Frameworks
-nltk
-scikit-learn
-sacrebleu

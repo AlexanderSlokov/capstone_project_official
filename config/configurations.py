@@ -9,14 +9,16 @@ from langchain.document_loaders import UnstructuredFileLoader, UnstructuredMarkd
 from langchain.document_loaders import UnstructuredHTMLLoader
 
 # load_dotenv()
-ROOT_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
+ROOT_DIRECTORY = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "../")
+)
 
 # Define the folder for storing database
-SOURCE_DIRECTORY = f"{ROOT_DIRECTORY}/SOURCE_DOCUMENTS"
+SOURCE_DIRECTORY = os.path.join(ROOT_DIRECTORY, "SOURCE_DOCUMENTS")
 
-PERSIST_DIRECTORY = f"{ROOT_DIRECTORY}/DB"
+PERSIST_DIRECTORY = os.path.join(ROOT_DIRECTORY, "DB")
 
-MODELS_PATH = "../models"
+MODELS_PATH = os.path.join(ROOT_DIRECTORY, "models")
 
 # Can be changed to a specific number
 INGEST_THREADS = os.cpu_count() or 8
@@ -50,7 +52,6 @@ DOCUMENT_MAP = {
     ".txt": UnstructuredFileLoader,
     ".md": UnstructuredMarkdownLoader,
     ".py": TextLoader,
-    # ".pdf": PDFMinerLoader,
     ".pdf": UnstructuredFileLoader,
     ".csv": CSVLoader,
     ".xls": UnstructuredExcelLoader,

@@ -10,14 +10,14 @@ from langchain.chains import RetrievalQA
 from langchain.embeddings import HuggingFaceInstructEmbeddings
 
 # from langchain.embeddings import HuggingFaceEmbeddings
-from run_localGPT_tiengviet import load_model
-from prompt_template_utils import get_prompt_template
+from localGPT_app.run_localGPT import load_model
+from localGPT_app.prompt_template_utils import get_prompt_template
 
 # from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.vectorstores import Chroma
 from werkzeug.utils import secure_filename
 
-from localgpt_llama2.config.configurations import CHROMA_SETTINGS, EMBEDDING_MODEL_NAME, PERSIST_DIRECTORY, MODEL_ID, MODEL_BASENAME
+from config.configurations import CHROMA_SETTINGS, EMBEDDING_MODEL_NAME, PERSIST_DIRECTORY, MODEL_ID, MODEL_BASENAME
 
 # API queue addition
 from threading import Lock
@@ -47,13 +47,13 @@ EMBEDDINGS = HuggingFaceInstructEmbeddings(model_name=EMBEDDING_MODEL_NAME, mode
 #         print(f"Error: {e.filename} - {e.strerror}.")
 # else:
 #     print("The directory does not exist")
-
-# run_langest_commands = ["python", "ingest.py"]
+#
+# run_ingest_commands = ["python", "ingest.py"]
 # if DEVICE_TYPE == "cpu":
-#     run_langest_commands.append("--device_type")
-#     run_langest_commands.append(DEVICE_TYPE)
+#     run_ingest_commands.append("--device_type")
+#     run_ingest_commands.append(DEVICE_TYPE)
 
-# result = subprocess.run(run_langest_commands, capture_output=True)
+# result = subprocess.run(run_ingest_commands, capture_output=True)
 # if result.returncode != 0:
 #     raise FileNotFoundError(
 #         "No files were found inside SOURCE_DOCUMENTS, please put a starter file inside before starting the API!"
@@ -69,7 +69,7 @@ DB = Chroma(
 RETRIEVER = DB.as_retriever()
 
 LLM = load_model(device_type=DEVICE_TYPE, model_id=MODEL_ID, model_basename=MODEL_BASENAME)
-prompt, memory = get_prompt_template(promptTemplate_type="llama", history=False)
+prompt, memory = get_prompt_template(promptTemplate_type="qwen", history=False)
 
 QA = RetrievalQA.from_chain_type(
     llm=LLM,
@@ -142,7 +142,7 @@ def run_ingest_route():
             client_settings=CHROMA_SETTINGS,
         )
         RETRIEVER = DB.as_retriever()
-        prompt, memory = get_prompt_template(promptTemplate_type="llama", history=False)
+        prompt, memory = get_prompt_template(promptTemplate_type="qwen", history=False)
 
         QA = RetrievalQA.from_chain_type(
             llm=LLM,

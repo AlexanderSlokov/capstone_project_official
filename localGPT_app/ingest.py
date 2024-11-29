@@ -6,9 +6,9 @@ import torch
 from langchain.docstore.document import Document
 from langchain.text_splitter import Language, RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
-from utils import get_embeddings
 
-from localgpt_llama2.config.configurations import (
+from localGPT_app.utils import get_embeddings
+from config.configurations import (
     CHROMA_SETTINGS,
     DOCUMENT_MAP,
     EMBEDDING_MODEL_NAME,
