@@ -1,0 +1,10 @@
+services:
+  docker-localgpt:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    runtime: nvidia
+    volumes:
+      - ./DB:/app/DB
+    environment:
+      - CUDA_VISIBLE_DEVICES=0

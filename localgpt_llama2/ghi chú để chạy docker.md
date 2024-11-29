@@ -83,21 +83,19 @@ set DOCKER_BUILDKIT=1
 docker build . -t localgpt:latest
 
 ```
+#### Gọi trực tiếp ingest.py từ container
+```powershell
+docker run -it --rm --gpus=all --mount src="$env:USERPROFILE\.cache",target=/root/.cache,type=bind localgpt:latest python3.10 ingest.py --device_type cuda
+```
 
 #### Run container với GPU:
-```bash
-docker run -it --rm \
-  --mount src="$HOME/.cache",target=/root/.cache,type=bind \
-  --gpus=all \
-  localgpt:latest
+```powershell
+docker run -it --rm --gpus=all --mount src="$env:USERPROFILE\.cache",target=/root/.cache,type=bind localgpt:latest
 ```
 
 #### Run container với CPU:
-```bash
-docker run -it --rm \
-  --mount src="$HOME/.cache",target=/root/.cache,type=bind \
-  -e device_type=cpu \
-  localgpt:latest
+```powershell
+docker run -it --rm -e device_type=cpu --mount src="$env:USERPROFILE\.cache",target=/root/.cache,type=bind localgpt:latest
 ```
 
 Những điều chỉnh này đảm bảo container của bạn chạy chính xác với cấu hình mới và tối ưu hóa hiệu năng.
