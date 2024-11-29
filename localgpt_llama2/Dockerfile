@@ -10,7 +10,7 @@ COPY ./requirements.txt .
 # use BuildKit cache mount to drastically reduce redownloading from pip on repeated builds
 RUN --mount=type=cache,target=/root/.cache CMAKE_ARGS="-DLLAMA_CUBLAS=on" FORCE_CMAKE=1 pip install --timeout 100 -r requirements.txt llama-cpp-python==0.1.83
 COPY SOURCE_DOCUMENTS ./SOURCE_DOCUMENTS
-COPY ingest.py constants.py ./
+COPY app/ingest.py constants.py ./
 # Docker BuildKit does not support GPU during *docker build* time right now, only during *docker run*.
 # See <https://github.com/moby/buildkit/issues/1436>.
 # If this changes in the future you can `docker build --build-arg device_type=cuda  . -t localgpt` (+GPU argument to be determined).
