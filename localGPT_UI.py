@@ -129,7 +129,8 @@ def add_vertical_space(amount):
 
 
 with st.sidebar:
-    st.title("🤗💬 Trợ lý truy vấn văn bản của bạn. Bảo mật và riêng tư, hoàn toàn nội bộ.")
+    st.title("🤗💬 Trợ lý truy vấn văn bản của bạn. ")
+    st.title("Bảo mật và riêng tư, hoàn toàn nội bộ.")
     st.markdown(
         """
         ## About
@@ -163,12 +164,12 @@ with st.sidebar:
 
     add_vertical_space(5)
     st.write("Ứng dụng này được tạo ra với ❤️ bởi [Prompt Engineer](https://youtube.com/@engineerprompt)")
-    st.write("Hoàn thiện và tối ưu dành cho người Việt với ❤️ bởi [Đinh Tấn Dũng - Alexander Slokov]("
+    st.write("Hoàn thiện và tối ưu dành cho người Việt ️bởi [Đinh Tấn Dũng - Alexander Slokov]("
              "https://github.com/AlexanderSlokov)")
     st.write("Dựa trên công nghệ của:")
-    st.markdown("- [Streamlit](https://streamlit.io/) - Framework cho ứng dụng web Python dễ dàng.")
-    st.markdown("- [LangChain](https://python.langchain.com/) - Công cụ hỗ trợ xây dựng LLM hiệu quả.")
-    st.markdown("- [HuggingFace](https://huggingface.co/) - Mô hình xử lý ngôn ngữ tiên tiến.")
+    st.markdown("- [Streamlit](https://streamlit.io/) - Framework xây dựng ứng dụng web Python dễ dàng.")
+    st.markdown("- [LangChain](https://python.langchain.com/) - Công cụ hỗ trợ xây dựng hệ thống LLM hiệu quả.")
+    st.markdown("- [HuggingFace](https://huggingface.co/) - Cộng đồng phát triển mô hình xử lý ngôn ngữ tiên tiến.")
     st.markdown("- [ChromaDB](https://www.trychroma.com/) - Bộ máy vector database hiện đại.")
     st.markdown("- [LocalGPT](https://github.com/PromtEngineer/localGPT) - Khởi nguồn của ứng dụng này.")
     add_vertical_space(2)
@@ -232,7 +233,7 @@ if load_model_flag:
         )
     )
 else:
-    st.warning("Quá trình khởi tạo mô hình ngôn ngữ đang được tắt để thực hiện kiểm tra môi trường chạy ứng dụng. Vui lòng khởi động quy trình với nút trên để bắt đầu sử dụng.")
+    st.warning("Quá trình khởi tạo mô hình ngôn ngữ đang được tắt để thực hiện kiểm tra môi trường chạy ứng dụng. Vui lòng khởi động quy trình với nút *Nạp Mô Hình AI* ở bảng trượt để bắt đầu sử dụng.")
 
 # Main localGPT_app title
 st.title("LocalGPT - Trợ lý truy vấn văn bản AI")
@@ -242,7 +243,7 @@ user_query = st.text_input("Nhập câu hỏi của bạn ở đây", key="user_
 
 # Text input for additional keywords
 additional_keywords = st.text_input(
-    "Thêm từ khoá (keywords) (ngăn cách bởi dấu phẩy, tuỳ chọn thêm)", key="additional_keywords"
+    "Thêm từ khoá (keywords) để hệ thống truy vấn có thêm dữ kiện và tìm kiếm chính xác hơn (ngăn cách bởi dấu phẩy, tuỳ chọn thêm.)", key="additional_keywords"
 )
 # Thêm nút bấm để xác nhận
 submit_button = st.button("Gửi câu hỏi")
