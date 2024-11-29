@@ -85,7 +85,7 @@ docker build . -t localgpt:latest
 ```
 #### Gọi trực tiếp ingest.py từ container
 ```powershell
-docker run -it --rm --gpus=all --mount src="$env:USERPROFILE\.cache",target=/root/.cache,type=bind localgpt:latest python3.10 ingest.py --device_type cuda
+docker run -it --rm --gpus=all --mount src="$env:USERPROFILE\.cache",target=/root/.cache,type=bind localgpt:latest ingest.py --device_type cuda
 ```
 
 #### Run container với GPU:

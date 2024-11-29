@@ -5,7 +5,7 @@ FROM nvidia/cuda:11.8.0-devel-ubuntu22.04
 RUN apt-get update && apt-get install -y \
     software-properties-common \
     g++-9 gcc-9 make python3.10 python3.10-dev python3-pip git ninja-build \
-    libcudnn8 libcudnn8-dev apt-utils build-essential && \
+    libcudnn8 libcudnn8-dev apt-utils build-essential libgl1 && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 60 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 60 && \
     apt-get clean && rm -rf /var/lib/apt/lists/*

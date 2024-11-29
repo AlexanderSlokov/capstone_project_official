@@ -31,7 +31,11 @@ sentence-transformers==2.2.2
 faiss-cpu==1.8.0.post1
 huggingface_hub==0.25.1
 transformers==4.45.1
-
+unstructured==0.11.2
+pikepdf==9.3.0
+pypdf==5.0.1
+unstructured-inference==0.7.15
+unstructured.pytesseract==0.3.13
 # Utilities
 urllib3==1.26.6
 accelerate==0.34.2
