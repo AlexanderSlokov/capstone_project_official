@@ -235,7 +235,7 @@ else:
     st.warning("Quá trình khởi tạo mô hình ngôn ngữ đang được tắt để thực hiện kiểm tra môi trường chạy ứng dụng. Vui lòng khởi động quy trình với nút trên để bắt đầu sử dụng.")
 
 # Main localGPT_app title
-st.title("LocalGPT - Trợ lý đọc văn bản AI")
+st.title("LocalGPT - Trợ lý truy vấn văn bản AI")
 
 # Text input for user query
 user_query = st.text_input("Nhập câu hỏi của bạn ở đây", key="user_query")
