@@ -122,6 +122,60 @@ def initialize_component(key, initializer):
         st.session_state[key] = initializer()
     return st.session_state[key]
 
+# Sử dụng pipeline nâng cao với từ khóa và cấu hình top_k
+def initialize_pipeline_with_keywords():
+    # Tạo embeddings
+    embeddings = HuggingFaceInstructEmbeddings(model_name=EMBEDDING_MODEL_NAME, model_kwargs={"device": DEVICE_TYPE})
+
+    # Tạo database vector
+    db = Chroma(
+        persist_directory=PERSIST_DIRECTORY,
+        embedding_function=embeddings,
+        client_settings=CHROMA_SETTINGS,
+    )
+
+    # Sử dụng retriever với top_k và tìm kiếm similarity
+    retriever = db.as_retriever(
+        search_kwargs={"k": 10},  # Lấy 10 tài liệu liên quan nhất
+        search_type="similarity",  # Sử dụng tìm kiếm similarity
+    )
+
+    # Tạo prompt và memory
+    prompt, memory = model_memory(promptTemplate_type="qwen", history=False)
+
+    # Tải mô hình LLM từ CLI
+    llm = load_model(device_type=DEVICE_TYPE, model_id=MODEL_ID, model_basename=MODEL_BASENAME)
+
+    # Tạo pipeline QA nâng cao
+    qa_pipeline = RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",  # Có thể đổi thành "map_reduce" hoặc "refine" nếu cần
+        retriever=retriever,
+        return_source_documents=True,
+        chain_type_kwargs={"prompt": prompt, "memory": memory},
+    )
+
+    return qa_pipeline
+
+# Đặt sau các hàm như initialize_component
+def load_model(device_type, model_id, model_basename=None):
+    model, tokenizer = load_full_model(model_id, model_basename, device_type, logging)
+
+    # Tạo pipeline với thông số CLI
+    pipe = pipeline(
+        "text-generation",
+        model=model,
+        tokenizer=tokenizer,
+        max_new_tokens=MAX_NEW_TOKENS,
+        do_sample=True,
+        temperature=0.7,  # Thay đổi thông số sinh văn bản
+        top_p=0.9,
+        top_k=40,
+        repetition_penalty=1.1,
+    )
+
+    local_llm = HuggingFacePipeline(pipeline=pipe)
+    return local_llm
 
 # Sidebar contents
 def add_vertical_space(amount):
@@ -203,7 +257,7 @@ if load_model_flag:
     # Initialize retriever
     RETRIEVER = initialize_component("RETRIEVER", lambda: DB.as_retriever())
 
-    # Initialize LLM
+    # Sử dụng hàm load_model mới
     LLM = initialize_component("LLM", lambda: load_model(device_type=DEVICE_TYPE, model_id=MODEL_ID,
                                                          model_basename=MODEL_BASENAME))
 
@@ -222,16 +276,7 @@ if load_model_flag:
 
     # Initialize QA pipeline
     prompt, memory = model_memory()
-    QA = initialize_component(
-        "QA",
-        lambda: RetrievalQA.from_chain_type(
-            llm=LLM,
-            chain_type="stuff",
-            retriever=RETRIEVER,
-            return_source_documents=True,
-            chain_type_kwargs={"prompt": prompt, "memory": memory},
-        )
-    )
+    QA = initialize_pipeline_with_keywords()
 else:
     st.warning("Quá trình khởi tạo mô hình ngôn ngữ đang được tắt để thực hiện kiểm tra môi trường chạy ứng dụng. Vui lòng khởi động quy trình với nút *Nạp Mô Hình AI* ở bảng trượt để bắt đầu sử dụng.")
 
@@ -241,10 +286,20 @@ st.title("LocalGPT - Trợ lý truy vấn văn bản AI")
 # Text input for user query
 user_query = st.text_input("Nhập câu hỏi của bạn ở đây", key="user_query")
 
-# Text input for additional keywords
-additional_keywords = st.text_input(
-    "Thêm từ khoá (keywords) để hệ thống truy vấn có thêm dữ kiện và tìm kiếm chính xác hơn (ngăn cách bởi dấu phẩy, tuỳ chọn thêm.)", key="additional_keywords"
+# Sidebar tùy chỉnh thông số
+with st.sidebar:
+    top_k = st.number_input("Số tài liệu cần lấy (Top-k):", min_value=1, max_value=20, value=10)
+    additional_keywords = st.text_input("Thêm từ khóa (tuỳ chọn):", value="")
+
+# Áp dụng `top_k` vào pipeline
+retriever = DB.as_retriever(
+    search_kwargs={"k": top_k},  # Lấy số tài liệu do người dùng chọn
+    search_type="similarity",
 )
+
+# Thêm từ khóa vào câu truy vấn
+enhanced_query = user_query + " " + additional_keywords if additional_keywords else user_query
+
 # Thêm nút bấm để xác nhận
 submit_button = st.button("Gửi câu hỏi")
 
@@ -254,16 +309,7 @@ if submit_button:
         st.error("Mô hình chưa được tải. Vui lòng bật `Load Model` trong sidebar để sử dụng chức năng này.")
     elif user_query.strip():
         try:
-            # Xử lý từ khóa bổ sung (nếu có)
-            if additional_keywords.strip():
-                # Tách các từ khóa dựa trên dấu phẩy
-                keywords = [kw.strip() for kw in additional_keywords.split(",")]
-                # Thêm từ khóa vào truy vấn ban đầu
-                enhanced_query = user_query + " " + " ".join(keywords)
-            else:
-                enhanced_query = user_query
-
-            # Gọi QA với truy vấn được nâng cấp
+            # Gọi QA với truy vấn nâng cấp
             response = QA(enhanced_query)
             answer, docs = response["result"], response["source_documents"]
 
@@ -284,3 +330,4 @@ if submit_button:
             st.error(f"An error occurred while processing the query: {str(e)}")
     else:
         st.warning("Vui lòng nhập câu hỏi trước khi gửi.")
+
