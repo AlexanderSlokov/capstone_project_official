@@ -58,7 +58,6 @@ def get_client_ip():
     except Exception as e:
         return f"Unknown IP ({e})"
 
-
 def check_ip_whitelist():
     """Hàm kiểm tra IP người dùng với logic cải tiến."""
     allowed_ips = ["172.25.224.1", "127.0.0.1"]  # Thêm IP cho phép tại đây
@@ -197,7 +196,6 @@ elif torch.cuda.is_available():
 else:
     DEVICE_TYPE = "cpu"
 
-
 # Sidebar bên cạnh trái.
 with st.sidebar:
     st.title("🤗💬 Trợ lý truy vấn văn bản của bạn. ")
@@ -250,99 +248,111 @@ with st.sidebar:
 
 # Kiểm tra trạng thái checkbox trước khi tải mô hình
 if load_model_flag:
-    # Initialize embeddings
-    EMBEDDINGS = initialize_component(
-        "EMBEDDINGS",
-        lambda: HuggingFaceInstructEmbeddings(
-            model_name=EMBEDDING_MODEL_NAME,
-            model_kwargs={"device": DEVICE_TYPE},
-            embed_instruction="Represent the document content for retrieval in Vietnamese:",
-            query_instruction="Represent the query content for retrieval in Vietnamese:"
-        )
-    )
+    # Kiểm tra xem mô hình đã được nạp chưa
+    if "model_loaded" not in st.session_state:
+        st.warning("Quá trình khởi tạo mô hình ngôn ngữ đang được tắt để thực hiện kiểm tra môi trường chạy ứng dụng. Vui lòng khởi động quy trình với nút *Nạp Mô Hình AI* ở bảng trượt để bắt đầu sử dụng.")
+        st.session_state["model_loaded"] = False
 
-    # Initialize database
-    DB = initialize_component(
-        "DB",
-        lambda: Chroma(
-            persist_directory=PERSIST_DIRECTORY,
-            embedding_function=EMBEDDINGS,
-            client_settings=CHROMA_SETTINGS,
-        )
-    )
-
-    retrieval_method = st.radio("Chọn phương pháp truy vấn:",
-                                ["similarity - tìm thông tin tương tự.", "mmr - tìm thông tin liên quan."])
-    # Lấy giá trị chính từ chuỗi vừa chọn bên trên
-    method_type = retrieval_method.split(" - ")[0]
-
-    top_k = st.number_input(
-        "Số lượng tài liệu tương tự sẽ được trả về (k):",
-        min_value=1,
-        max_value=50,
-        value=20,
-        step=1
-    )
-
-    fetch_k = st.number_input(
-        "Phạm vi tìm kiếm bao nhiêu mảnh tài liệu cho câu hỏi của bạn (fetch_k):",
-        min_value=10,
-        max_value=100,
-        value=50,
-        step=10
-    )
-
-    # Xử lý với việc người dùng chọn hai trường hợp để hỏi.
-    if method_type == "similarity":
-        # Thêm slider cho ngưỡng tương tự
-        score_threshold = st.slider(
-            "Ngưỡng điểm tương tự (score_threshold) quyết định độ chính xác của kết quả tìm kiếm. Giá trị càng cao thì chỉ các tài liệu rất giống với câu hỏi mới được chọn.",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.75,
-            step=0.05
-        )
-        RETRIEVER = initialize_component(
-            "RETRIEVER",
-            lambda: DB.as_retriever(
-                search_type="similarity",
-                search_kwargs={"k": top_k, "fetch_k": fetch_k, "score_threshold": score_threshold }
+    if not st.session_state["model_loaded"]:
+        # Initialize embeddings
+        EMBEDDINGS = initialize_component(
+            "EMBEDDINGS",
+            lambda: HuggingFaceInstructEmbeddings(
+                model_name=EMBEDDING_MODEL_NAME,
+                model_kwargs={"device": DEVICE_TYPE},
+                embed_instruction="Represent the document content for retrieval in Vietnamese:",
+                query_instruction="Represent the query content for retrieval in Vietnamese:"
             )
         )
+
+        # Initialize database
+        DB = initialize_component(
+            "DB",
+            lambda: Chroma(
+                persist_directory=PERSIST_DIRECTORY,
+                embedding_function=EMBEDDINGS,
+                client_settings=CHROMA_SETTINGS,
+            )
+        )
+
+        retrieval_method = st.radio("Chọn phương pháp truy vấn:",
+                                    ["similarity - tìm thông tin tương tự.", "mmr - tìm thông tin liên quan."])
+        # Lấy giá trị chính từ chuỗi vừa chọn bên trên
+        method_type = retrieval_method.split(" - ")[0]
+
+        top_k = st.number_input(
+            "Số lượng tài liệu tương tự sẽ được trả về (k):",
+            min_value=1,
+            max_value=50,
+            value=20,
+            step=1
+        )
+
+        fetch_k = st.number_input(
+            "Phạm vi tìm kiếm bao nhiêu mảnh tài liệu cho câu hỏi của bạn (fetch_k):",
+            min_value=10,
+            max_value=100,
+            value=50,
+            step=10
+        )
+
+        # Xử lý với việc người dùng chọn hai trường hợp để hỏi.
+        if method_type == "similarity":
+            # Thêm slider cho ngưỡng tương tự
+            score_threshold = st.slider(
+                "Ngưỡng điểm tương tự (score_threshold) quyết định độ chính xác của kết quả tìm kiếm. Giá trị càng cao thì chỉ các tài liệu rất giống với câu hỏi mới được chọn.",
+                min_value=0.0,
+                max_value=1.0,
+                value=0.75,
+                step=0.05
+            )
+            RETRIEVER = initialize_component(
+                "RETRIEVER",
+                lambda: DB.as_retriever(
+                    search_type="similarity",
+                    search_kwargs={"k": top_k, "fetch_k": fetch_k, "score_threshold": score_threshold}
+                )
+            )
+        else:
+            mmr_lambda = st.slider(
+                "Trọng số lambda điều chỉnh sự cân bằng giữa tìm kiếm thông tin tương tự và sự đa dạng trong các kết quả:",
+                min_value=0.0,
+                max_value=1.0,
+                value=0.5,
+                step=0.1
+            )
+            RETRIEVER = initialize_component(
+                "RETRIEVER",
+                lambda: DB.as_retriever(
+                    search_type="mmr",
+                    search_kwargs={"k": top_k, "fetch_k": fetch_k, "lambda": mmr_lambda}
+                )
+            )
+
+        # Initialize LLM
+        LLM = initialize_component("LLM", lambda: load_model(device_type=DEVICE_TYPE, model_id=MODEL_ID,
+                                                             model_basename=MODEL_BASENAME))
+
+        # Sử dụng prompt cho Qwen với lịch sử hội thoại
+        prompt, memory = model_memory(promptTemplate_type="qwen", history=False)
+        QA = initialize_component(
+            "QA",
+            lambda: RetrievalQA.from_chain_type(
+                llm=LLM,
+                chain_type="stuff",
+                retriever=RETRIEVER,
+                return_source_documents=True,
+                chain_type_kwargs={"prompt": prompt, "memory": memory},
+            )
+        )
+
+        # Đánh dấu mô hình đã được nạp
+        st.session_state["model_loaded"] = True
+
+        st.success("Mô hình đã được nạp thành công.")
     else:
-        mmr_lambda = st.slider(
-            "Trọng số lambda điều chỉnh sự cân bằng giữa tìm kiếm thông tin tương tự và sự đa dạng trong các kết quả:",
-            min_value=0.0,
-            max_value=1.0,
-            value=0.5,
-            step=0.1
-        )
-        RETRIEVER = initialize_component(
-            "RETRIEVER",
-            lambda: DB.as_retriever(
-                search_type="mmr",
-                search_kwargs={"k": top_k, "fetch_k": fetch_k, "lambda": mmr_lambda}
-            )
-        )
+        st.info("Mô hình đã được nạp trước đó. Không cần nạp lại.")
 
-    # Initialize LLM
-    LLM = initialize_component("LLM", lambda: load_model(device_type=DEVICE_TYPE, model_id=MODEL_ID,
-                                                         model_basename=MODEL_BASENAME))
-
-    # Sử dụng prompt cho Qwen với lịch sử hội thoại
-    prompt, memory = model_memory(promptTemplate_type="qwen", history=False)
-    QA = initialize_component(
-        "QA",
-        lambda: RetrievalQA.from_chain_type(
-            llm=LLM,
-            chain_type="stuff",
-            retriever=RETRIEVER,
-            return_source_documents=True,
-            chain_type_kwargs={"prompt": prompt, "memory": memory},
-        )
-    )
-else:
-    st.warning("Quá trình khởi tạo mô hình ngôn ngữ đang được tắt để thực hiện kiểm tra môi trường chạy ứng dụng. Vui lòng khởi động quy trình với nút *Nạp Mô Hình AI* ở bảng trượt để bắt đầu sử dụng.")
 
 # Main localGPT_app title
 st.title("LocalGPT - Trợ lý truy vấn văn bản AI")
