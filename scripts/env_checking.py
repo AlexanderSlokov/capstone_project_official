@@ -99,8 +99,5 @@ def system_check():
     else:
         print("NVCC not found on host.")
 
-    dependencies_exported = export_dependencies()
-    print("Dependencies exported successfully." if dependencies_exported else "Failed to export dependencies.")
-
     print("System check complete.")
     return cuda_available, total_vram, cuda_version

@@ -135,10 +135,10 @@ def main(device_type):
     documents = load_documents(SOURCE_DIRECTORY)
 
     # Giới hạn độ dài của tài liệu: giữ lại tối đa 30,000 ký tự (khoảng 10 trang A4)
-    for document in documents:
-        if len(document.page_content) > 30000:
-            document.page_content = document.page_content[:30000]
-            logging.info(f"Trimmed document to 30,000 characters")
+    # for document in documents:
+    #     if len(document.page_content) > 30000:
+    #         document.page_content = document.page_content[:30000]
+    #         logging.info(f"Trimmed document to 30,000 characters")
 
     if not documents:
         logging.error("No documents loaded. Check the source directory and file formats.")

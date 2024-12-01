@@ -15,9 +15,10 @@ from langchain.memory import ConversationBufferMemory
 # Thêm đường dẫn gốc vào sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-system_prompt = """You are a knowledgeable assistant with access to specific context documents. You must answer the
-questions only in Vietnamese language. You must answer questions based on the provided context only.
-If you cannot answer based on the context, inform the user politely. Do not use any external information."""
+system_prompt = """
+Bạn là một trợ lý thông minh với quyền truy cập vào các tài liệu ngữ cảnh. Bạn phải trả lời
+câu hỏi bằng tiếng Việt dựa trên ngữ cảnh được cung cấp. Không sử dụng thông tin bên ngoài.
+"""
 
 def model_memory(system_prompt_setup=system_prompt, promptTemplate_type=None, history=False):
     if promptTemplate_type == "llama":
@@ -114,32 +115,37 @@ def model_memory(system_prompt_setup=system_prompt, promptTemplate_type=None, hi
         memory,
     )
 
-
-
 # Utility function to initialize Streamlit session components
 def initialize_component(key, initializer):
     if key not in st.session_state:
         st.session_state[key] = initializer()
     return st.session_state[key]
 
-
 # Sidebar contents
 def add_vertical_space(amount):
     st.markdown(f"{'' * amount}")
 
+def clean_response(response_text):
+    # Loại bỏ các thẻ không mong muốn
+    unwanted_tags = ["[OUT]", "[INVISIBLE TEXT]", "<<BEGIN>>", "<<END>>"]
+    for tag in unwanted_tags:
+        response_text = response_text.replace(tag, "")
+    # Xóa các khoảng trắng dư thừa
+    response_text = response_text.strip()
+    return response_text
 
+# Determine the device type
+if torch.backends.mps.is_available():
+    DEVICE_TYPE = "mps"
+elif torch.cuda.is_available():
+    DEVICE_TYPE = "cuda"
+else:
+    DEVICE_TYPE = "cpu"
+
+# Sidebar bên cạnh trái.
 with st.sidebar:
     st.title("🤗💬 Trợ lý truy vấn văn bản của bạn. ")
     st.title("Bảo mật và riêng tư, hoàn toàn nội bộ.")
-    st.markdown(
-        """
-        ## About
-        Ứng dụng này là một LLM-powered chatbot được xây dựng trên nền tảng của:
-        - [Streamlit](https://streamlit.io/)
-        - [LangChain](https://python.langchain.com/)
-        - [LocalGPT](https://github.com/PromtEngineer/localGPT)
-        """
-    )
 
     # Thêm checkbox để bật/tắt việc tải mô hình
     load_model_flag = st.checkbox("Nạp mô hình AI (Vui lòng bấm chọn để triển khai mô hình AI.)", value=False)
@@ -162,6 +168,16 @@ with st.sidebar:
     else:
         st.error("Không thể thực hiện kiểm tra hệ thống!")
 
+    st.markdown(
+        """
+        ## About
+        Ứng dụng này là một LLM-powered chatbot được xây dựng trên nền tảng của:
+        - [Streamlit](https://streamlit.io/)
+        - [LangChain](https://python.langchain.com/)
+        - [LocalGPT](https://github.com/PromtEngineer/localGPT)
+        """
+    )
+
     add_vertical_space(5)
     st.write("Ứng dụng này được tạo ra với ❤️ bởi [Prompt Engineer](https://youtube.com/@engineerprompt)")
     st.write("Hoàn thiện và tối ưu dành cho người Việt ️bởi [Đinh Tấn Dũng - Alexander Slokov]("
@@ -175,19 +191,18 @@ with st.sidebar:
     add_vertical_space(2)
     st.write("Cảm ơn tất cả các công cụ mã nguồn mở và cộng đồng phát triển đã hỗ trợ chúng tôi tạo nên ứng dụng này.")
 
-# Determine the device type
-if torch.backends.mps.is_available():
-    DEVICE_TYPE = "mps"
-elif torch.cuda.is_available():
-    DEVICE_TYPE = "cuda"
-else:
-    DEVICE_TYPE = "cpu"
+
 # Kiểm tra trạng thái checkbox trước khi tải mô hình
 if load_model_flag:
     # Initialize embeddings
     EMBEDDINGS = initialize_component(
         "EMBEDDINGS",
-        lambda: HuggingFaceInstructEmbeddings(model_name=EMBEDDING_MODEL_NAME, model_kwargs={"device": DEVICE_TYPE})
+        lambda: HuggingFaceInstructEmbeddings(
+            model_name=EMBEDDING_MODEL_NAME,
+            model_kwargs={"device": DEVICE_TYPE},
+            embed_instruction="Represent the document content for retrieval in Vietnamese:",
+            query_instruction="Represent the query content for retrieval in Vietnamese:"
+        )
     )
 
     # Initialize database
@@ -200,8 +215,59 @@ if load_model_flag:
         )
     )
 
-    # Initialize retriever
-    RETRIEVER = initialize_component("RETRIEVER", lambda: DB.as_retriever())
+    retrieval_method = st.radio("Chọn phương pháp truy vấn:",
+                                ["similarity - tìm thông tin tương tự.", "mmr - tìm thông tin liên quan."])
+    # Lấy giá trị chính từ chuỗi vừa chọn bên trên
+    method_type = retrieval_method.split(" - ")[0]
+
+    top_k = st.number_input(
+        "Số lượng tài liệu tương tự sẽ được trả về (k):",
+        min_value=1,
+        max_value=50,
+        value=20,
+        step=1
+    )
+
+    fetch_k = st.number_input(
+        "Phạm vi tìm kiếm bao nhiêu mảnh tài liệu cho câu hỏi của bạn (fetch_k):",
+        min_value=10,
+        max_value=100,
+        value=50,
+        step=10
+    )
+
+    # Xử lý với việc người dùng chọn hai trường hợp để hỏi.
+    if method_type == "similarity":
+        # Thêm slider cho ngưỡng tương tự
+        score_threshold = st.slider(
+            "Ngưỡng điểm tương tự (score_threshold) quyết định độ chính xác của kết quả tìm kiếm. Giá trị càng cao thì chỉ các tài liệu rất giống với câu hỏi mới được chọn.",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.75,
+            step=0.05
+        )
+        RETRIEVER = initialize_component(
+            "RETRIEVER",
+            lambda: DB.as_retriever(
+                search_type="similarity",
+                search_kwargs={"k": top_k, "fetch_k": fetch_k, "score_threshold": score_threshold }
+            )
+        )
+    else:
+        mmr_lambda = st.slider(
+            "Trọng số lambda điều chỉnh sự cân bằng giữa tìm kiếm thông tin tương tự và sự đa dạng trong các kết quả:",
+            min_value=0.0,
+            max_value=1.0,
+            value=0.5,
+            step=0.1
+        )
+        RETRIEVER = initialize_component(
+            "RETRIEVER",
+            lambda: DB.as_retriever(
+                search_type="mmr",
+                search_kwargs={"k": top_k, "fetch_k": fetch_k, "lambda": mmr_lambda}
+            )
+        )
 
     # Initialize LLM
     LLM = initialize_component("LLM", lambda: load_model(device_type=DEVICE_TYPE, model_id=MODEL_ID,
@@ -209,19 +275,6 @@ if load_model_flag:
 
     # Sử dụng prompt cho Qwen với lịch sử hội thoại
     prompt, memory = model_memory(promptTemplate_type="qwen", history=False)
-    QA = initialize_component(
-        "QA",
-        lambda: RetrievalQA.from_chain_type(
-            llm=LLM,
-            chain_type="stuff",
-            retriever=RETRIEVER,
-            return_source_documents=True,
-            chain_type_kwargs={"prompt": prompt, "memory": memory},
-        )
-    )
-
-    # Initialize QA pipeline
-    prompt, memory = model_memory()
     QA = initialize_component(
         "QA",
         lambda: RetrievalQA.from_chain_type(
@@ -267,9 +320,9 @@ if submit_button:
             response = QA(enhanced_query)
             answer, docs = response["result"], response["source_documents"]
 
-            # Display the answer
+            cleaned_answer = clean_response(response["result"])
             st.write("### Answer:")
-            st.write(answer)
+            st.write(cleaned_answer)
 
             # Expandable section for document similarity search
             with st.expander("Document Similarity Search", expanded=True):

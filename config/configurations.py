@@ -37,7 +37,7 @@ MAX_NEW_TOKENS = 512
 # start with half of the original values and keep halving the value until the error stops appearing
 MODEL_ID = "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4"
 MODEL_BASENAME = "model.safetensors"
-EMBEDDING_MODEL_NAME = "intfloat/e5-small-v2"
+EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-large"
 N_GPU_LAYERS = 28  # Điều chỉnh số lượng layer GPU theo khả năng của card đồ họa
 N_BATCH = 512  # Điều chỉnh kích thước batch size phù hợp với dung lượng VRAM
 
