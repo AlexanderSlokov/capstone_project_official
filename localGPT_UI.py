@@ -22,6 +22,13 @@ Bạn là một trợ lý thông minh với quyền truy cập vào các tài li
 câu hỏi bằng tiếng Việt dựa trên ngữ cảnh được cung cấp. Không sử dụng thông tin bên ngoài.
 """
 
+QA = None
+
+# ===========================================
+# 1. Kiểm tra quyền truy cập (Mật khẩu và IP)
+# ===========================================
+
+
 # Trạng thái nhập mật khẩu đúng hoặc sai
 def check_password():
     """Hàm kiểm tra mật khẩu với logic cải tiến."""
@@ -48,15 +55,17 @@ def check_password():
 
     return True  # Đã xác thực
 
+
 def get_client_ip():
-    """Lấy địa chỉ IP của client từ kết nối socket."""
+    """Lấy địa chỉ IP của host."""
     try:
-        # Trả về địa chỉ IP của client trong mạng LAN
+        # Trả về địa chỉ IP của host trong mạng LAN
         hostname = socket.gethostname()
         client_ip = socket.gethostbyname(hostname)
         return client_ip
-    except Exception as e:
-        return f"Unknown IP ({e})"
+    except Exception as get_client_ip_exeption:
+        return f"Unknown IP ({get_client_ip_exeption})"
+
 
 def check_ip_whitelist():
     """Hàm kiểm tra IP người dùng với logic cải tiến."""
@@ -64,8 +73,9 @@ def check_ip_whitelist():
     client_ip = get_client_ip()
 
     if client_ip not in allowed_ips:
-        st.error(f"Truy cập bị từ chối: IP {client_ip} không được phép truy cập.")
+        st.error(f"Truy cập bị từ chối: IP của bạn không được phép truy cập.")
         st.stop()
+
 
 # Xác thực mật khẩu trước
 if not check_password():
@@ -74,100 +84,135 @@ if not check_password():
 # Kiểm tra quyền truy cập theo IP sau khi nhập đúng mật khẩu
 check_ip_whitelist()
 
-def model_memory(system_prompt_setup=system_prompt, promptTemplate_type=None, history=False):
-    if promptTemplate_type == "llama":
+
+# ========================================
+# 2. Tạo PromptTemplate cho các loại model
+# ========================================
+
+def create_prompt_template(system_prompt_setup=system_prompt, model_type=None):
+    if model_type == "llama":
         B_INST, E_INST = "[INST]", "[/INST]"
         B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
         SYSTEM_PROMPT = B_SYS + system_prompt_setup + E_SYS
-        if history:
-            instruction = """
-            Context: {history} \n {context}
-            User: {question}"""
-
-            prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
-            prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
-        else:
-            instruction = """
-            Context: {context}
-            User: {question}"""
-
-            prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
-            prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
-
-    elif promptTemplate_type == "mistral":
+    elif model_type == "mistral":
         B_INST, E_INST = "<s>[INST] ", " [/INST]"
-        if history:
-            prompt_template = (
-                B_INST
-                + system_prompt_setup
-                + """
-
-            Context: {history} \n {context}
-            User: {question}"""
-                + E_INST
-            )
-            prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
-        else:
-            prompt_template = (
-                B_INST
-                + system_prompt_setup
-                + """
-
-            Context: {context}
-            User: {question}"""
-                + E_INST
-            )
-            prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
-
-    elif promptTemplate_type == "qwen":
-        # Cấu trúc prompt cho Qwen
+        SYSTEM_PROMPT = system_prompt_setup
+    elif model_type == "qwen":
         B_INST, E_INST = "[INST]", "[/INST]"
         B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
         SYSTEM_PROMPT = B_SYS + system_prompt_setup + E_SYS
-        if history:
-            instruction = """
-            Context: {history} \n {context}
-            User: {question}"""
-
-            prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
-            prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
-        else:
-            instruction = """
-            Context: {context}
-            User: {question}"""
-
-            prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
-            prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
-
     else:
-        # Default cấu trúc nếu không chọn model cụ thể
-        if history:
-            prompt_template = (
-                system_prompt_setup
-                + """
+        SYSTEM_PROMPT = system_prompt_setup
+        B_INST, E_INST = "", ""
 
-            Context: {history} \n {context}
-            User: {question}
-            Answer:"""
-            )
-            prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
-        else:
-            prompt_template = (
-                system_prompt_setup
-                + """
+    instruction = f"""
+    Context: {{'history' if history else ''}} \n {{context}}
+    User: {{question}}"""
 
-            Context: {context}
-            User: {question}
-            Answer:"""
-            )
-            prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
+    prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
+    return PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
 
-    memory = ConversationBufferMemory(input_key="question", memory_key="history")
 
-    return (
-        prompt,
-        memory,
-    )
+# def model_memory(system_prompt_setup=system_prompt, prompt_template_type=None, history=False):
+#     if prompt_template_type == "llama":
+#         B_INST, E_INST = "[INST]", "[/INST]"
+#         B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
+#         SYSTEM_PROMPT = B_SYS + system_prompt_setup + E_SYS
+#         if history:
+#             instruction = """
+#             Context: {history} \n {context}
+#             User: {question}"""
+#
+#             prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
+#             prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
+#         else:
+#             instruction = """
+#             Context: {context}
+#             User: {question}"""
+#
+#             prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
+#             prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
+#
+#     elif prompt_template_type == "mistral":
+#         B_INST, E_INST = "<s>[INST] ", " [/INST]"
+#         if history:
+#             prompt_template = (
+#                 B_INST
+#                 + system_prompt_setup
+#                 + """
+#
+#             Context: {history} \n {context}
+#             User: {question}"""
+#                 + E_INST
+#             )
+#             prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
+#         else:
+#             prompt_template = (
+#                 B_INST
+#                 + system_prompt_setup
+#                 + """
+#
+#             Context: {context}
+#             User: {question}"""
+#                 + E_INST
+#             )
+#             prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
+#
+#     elif prompt_template_type == "qwen":
+#         # Cấu trúc prompt cho Qwen
+#         B_INST, E_INST = "[INST]", "[/INST]"
+#         B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
+#         SYSTEM_PROMPT = B_SYS + system_prompt_setup + E_SYS
+#         if history:
+#             instruction = """
+#             Context: {history} \n {context}
+#             User: {question}"""
+#
+#             prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
+#             prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
+#         else:
+#             instruction = """
+#             Context: {context}
+#             User: {question}"""
+#
+#             prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
+#             prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
+#
+#     else:
+#         # Default cấu trúc nếu không chọn model cụ thể
+#         if history:
+#             prompt_template = (
+#                 system_prompt_setup
+#                 + """
+#
+#             Context: {history} \n {context}
+#             User: {question}
+#             Answer:"""
+#             )
+#             prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
+#         else:
+#             prompt_template = (
+#                 system_prompt_setup
+#                 + """
+#
+#             Context: {context}
+#             User: {question}
+#             Answer:"""
+#             )
+#             prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
+#
+#     memory = ConversationBufferMemory(input_key="question", memory_key="history")
+#
+#     return (
+#         prompt,
+#         memory,
+#     )
+
+
+# ======================================
+# 3. Các hàm tiện ích chung
+# ======================================
+
 
 # Utility function to initialize Streamlit session components
 def initialize_component(key, initializer):
@@ -175,9 +220,11 @@ def initialize_component(key, initializer):
         st.session_state[key] = initializer()
     return st.session_state[key]
 
+
 # Sidebar contents
 def add_vertical_space(amount):
     st.markdown(f"{'' * amount}")
+
 
 def clean_response(response_text):
     # Loại bỏ các thẻ không mong muốn
@@ -188,6 +235,7 @@ def clean_response(response_text):
     response_text = response_text.strip()
     return response_text
 
+
 # Determine the device type
 if torch.backends.mps.is_available():
     DEVICE_TYPE = "mps"
@@ -196,13 +244,16 @@ elif torch.cuda.is_available():
 else:
     DEVICE_TYPE = "cpu"
 
+
+# ============================================
+# 4. Phần chính của giao diện ứng dụng Streamlit
+# ============================================
+
+
 # Sidebar bên cạnh trái.
 with st.sidebar:
     st.title("🤗💬 Trợ lý truy vấn văn bản của bạn. ")
     st.title("Bảo mật và riêng tư, hoàn toàn nội bộ.")
-
-    # Thêm checkbox để bật/tắt việc tải mô hình
-    load_model_flag = st.checkbox("Nạp mô hình AI (Vui lòng bấm chọn để triển khai mô hình AI.)", value=False)
 
     # Hiển thị kết quả kiểm tra môi trường
     st.subheader("🔍 Kiểm tra môi trường...")
@@ -245,12 +296,37 @@ with st.sidebar:
     add_vertical_space(2)
     st.write("Cảm ơn tất cả các công cụ mã nguồn mở và cộng đồng phát triển đã hỗ trợ chúng tôi tạo nên ứng dụng này.")
 
+# Main localGPT_app title
+st.title("LocalGPT - Trợ lý truy vấn văn bản AI")
+
+# Text input for user query
+user_query = st.text_input("Nhập câu hỏi của bạn ở đây", key="user_query")
+
+# Text input for additional keywords
+additional_keywords = st.text_input(
+    "Thêm từ khoá (keywords) để hệ thống truy vấn có thêm dữ kiện và tìm kiếm chính xác hơn (ngăn cách bởi dấu phẩy, "
+    "tuỳ chọn thêm.)",
+    key="additional_keywords"
+)
+# Thêm nút bấm để xác nhận
+submit_button = st.button("Gửi câu hỏi")
+
+
+# =======================================
+# 5. Phần chính: Tải mô hình và xử lý câu hỏi
+# =======================================
+
+
+# Thêm checkbox để bật/tắt việc tải mô hình
+load_model_flag = st.checkbox("Nạp mô hình AI (Vui lòng bấm chọn để triển khai mô hình AI.)", value=False)
 
 # Kiểm tra trạng thái checkbox trước khi tải mô hình
 if load_model_flag:
     # Kiểm tra xem mô hình đã được nạp chưa
     if "model_loaded" not in st.session_state:
-        st.warning("Quá trình khởi tạo mô hình ngôn ngữ đang được tắt để thực hiện kiểm tra môi trường chạy ứng dụng. Vui lòng khởi động quy trình với nút *Nạp Mô Hình AI* ở bảng trượt để bắt đầu sử dụng.")
+        st.warning(
+            "Quá trình khởi tạo mô hình ngôn ngữ đang được tắt để thực hiện kiểm tra môi trường chạy ứng dụng. Vui "
+            "lòng khởi động quy trình với nút *Nạp Mô Hình AI* ở bảng trượt để bắt đầu sử dụng.")
         st.session_state["model_loaded"] = False
 
     if not st.session_state["model_loaded"]:
@@ -300,7 +376,8 @@ if load_model_flag:
         if method_type == "similarity":
             # Thêm slider cho ngưỡng tương tự
             score_threshold = st.slider(
-                "Ngưỡng điểm tương tự (score_threshold) quyết định độ chính xác của kết quả tìm kiếm. Giá trị càng cao thì chỉ các tài liệu rất giống với câu hỏi mới được chọn.",
+                "Ngưỡng điểm tương tự (score_threshold) quyết định độ chính xác của kết quả tìm kiếm. Giá trị càng "
+                "cao thì chỉ các tài liệu rất giống với câu hỏi mới được chọn.",
                 min_value=0.0,
                 max_value=1.0,
                 value=0.75,
@@ -315,7 +392,8 @@ if load_model_flag:
             )
         else:
             mmr_lambda = st.slider(
-                "Trọng số lambda điều chỉnh sự cân bằng giữa tìm kiếm thông tin tương tự và sự đa dạng trong các kết quả:",
+                "Trọng số lambda điều chỉnh sự cân bằng giữa tìm kiếm thông tin tương tự và sự đa dạng trong các kết "
+                "quả:",
                 min_value=0.0,
                 max_value=1.0,
                 value=0.5,
@@ -334,17 +412,16 @@ if load_model_flag:
                                                              model_basename=MODEL_BASENAME))
 
         # Sử dụng prompt cho Qwen với lịch sử hội thoại
-        prompt, memory = model_memory(promptTemplate_type="qwen", history=False)
-        QA = initialize_component(
-            "QA",
-            lambda: RetrievalQA.from_chain_type(
+        prompt, memory = create_prompt_template(system_prompt_setup=system_prompt, model_type="qwen")
+        if load_model_flag and "QA" not in st.session_state:
+            st.session_state["QA"] = RetrievalQA.from_chain_type(
                 llm=LLM,
                 chain_type="stuff",
                 retriever=RETRIEVER,
                 return_source_documents=True,
                 chain_type_kwargs={"prompt": prompt, "memory": memory},
             )
-        )
+        QA = st.session_state["QA"]
 
         # Đánh dấu mô hình đã được nạp
         st.session_state["model_loaded"] = True
@@ -353,19 +430,10 @@ if load_model_flag:
     else:
         st.info("Mô hình đã được nạp trước đó. Không cần nạp lại.")
 
+# ==========================================
+# 6. Xử lý đầu vào và xuất kết quả
+# ==========================================
 
-# Main localGPT_app title
-st.title("LocalGPT - Trợ lý truy vấn văn bản AI")
-
-# Text input for user query
-user_query = st.text_input("Nhập câu hỏi của bạn ở đây", key="user_query")
-
-# Text input for additional keywords
-additional_keywords = st.text_input(
-    "Thêm từ khoá (keywords) để hệ thống truy vấn có thêm dữ kiện và tìm kiếm chính xác hơn (ngăn cách bởi dấu phẩy, tuỳ chọn thêm.)", key="additional_keywords"
-)
-# Thêm nút bấm để xác nhận
-submit_button = st.button("Gửi câu hỏi")
 
 # Process user input and display response chỉ khi QA được khởi tạo
 if submit_button:
@@ -383,7 +451,9 @@ if submit_button:
                 enhanced_query = user_query
 
             # Gọi QA với truy vấn được nâng cấp
-            response = QA(enhanced_query)
+            with st.spinner("Đang xử lý câu hỏi của bạn..."):
+                response = QA(enhanced_query)
+
             answer, docs = response["result"], response["source_documents"]
 
             cleaned_answer = clean_response(response["result"])
