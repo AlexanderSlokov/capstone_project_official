@@ -1,22 +1,20 @@
-import sys
+import datetime
 import os
 import socket
-import torch
-from flask import request
+import sys
 
 import streamlit as st
-from streamlit.web.server.server import Server
+import torch
+from langchain.chains import RetrievalQA
+from langchain.embeddings import HuggingFaceInstructEmbeddings
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate
+from langchain.vectorstores import Chroma
 
+from config.configurations import CHROMA_SETTINGS, EMBEDDING_MODEL_NAME, PERSIST_DIRECTORY, MODEL_ID, MODEL_BASENAME
 from localGPT_app.run_localGPT import load_model
 from localGPT_app.utils import export_to_pdf
 from scripts.env_checking import system_check
-from config.configurations import CHROMA_SETTINGS, EMBEDDING_MODEL_NAME, PERSIST_DIRECTORY, MODEL_ID, MODEL_BASENAME
-
-from langchain.vectorstores import Chroma
-from langchain.embeddings import HuggingFaceInstructEmbeddings
-from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from langchain.memory import ConversationBufferMemory
 
 # Thêm đường dẫn gốc vào sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -25,8 +23,6 @@ system_prompt = """
 Bạn là một trợ lý thông minh với quyền truy cập vào các tài liệu ngữ cảnh. Bạn phải trả lời
 câu hỏi bằng tiếng Việt dựa trên ngữ cảnh được cung cấp. Không sử dụng thông tin bên ngoài.
 """
-
-QA = None
 
 # ===========================================
 # 1. Kiểm tra quyền truy cập (Mật khẩu và IP)
@@ -93,7 +89,7 @@ check_ip_whitelist()
 # 2. Tạo PromptTemplate cho các loại model
 # ========================================
 
-def create_prompt_template(system_prompt_setup=system_prompt, model_type=None):
+def create_prompt_template(system_prompt_setup=system_prompt, model_type=None, history=False):
     if model_type == "llama":
         B_INST, E_INST = "[INST]", "[/INST]"
         B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
@@ -109,12 +105,22 @@ def create_prompt_template(system_prompt_setup=system_prompt, model_type=None):
         SYSTEM_PROMPT = system_prompt_setup
         B_INST, E_INST = "", ""
 
-    instruction = f"""
-    Context: {{'history' if history else ''}} \n {{context}}
-    User: {{question}}"""
+    # Điều chỉnh nội dung instruction dựa trên trạng thái của history
+    if history:
+        instruction = """
+        Context: {history} \n {context}
+        User: {question}"""
+        input_variables = ["history", "context", "question"]
+    else:
+        instruction = """
+        Context: {context}
+        User: {question}"""
+        input_variables = ["context", "question"]
 
+    # Kết hợp template
     prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
-    return PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
+
+    return PromptTemplate(input_variables=input_variables, template=prompt_template)
 
 
 # def model_memory(system_prompt_setup=system_prompt, prompt_template_type=None, history=False):
@@ -248,7 +254,6 @@ elif torch.cuda.is_available():
 else:
     DEVICE_TYPE = "cpu"
 
-
 # ============================================
 # 4. Phần chính của giao diện ứng dụng Streamlit
 # ============================================
@@ -315,7 +320,6 @@ additional_keywords = st.text_input(
 # Thêm nút bấm để xác nhận
 submit_button = st.button("Gửi câu hỏi")
 
-
 # =======================================
 # 5. Phần chính: Tải mô hình và xử lý câu hỏi
 # =======================================
@@ -325,99 +329,102 @@ submit_button = st.button("Gửi câu hỏi")
 load_model_flag = st.checkbox("Nạp mô hình AI (Vui lòng bấm chọn để triển khai mô hình AI.)", value=False)
 
 # Kiểm tra trạng thái checkbox trước khi tải mô hình
+# Kiểm tra trạng thái checkbox trước khi tải mô hình
 if load_model_flag:
-    # Kiểm tra xem mô hình đã được nạp chưa
+    # Khởi tạo trạng thái nếu chưa tồn tại
     if "model_loaded" not in st.session_state:
-        st.warning(
-            "Quá trình khởi tạo mô hình ngôn ngữ đang được tắt để thực hiện kiểm tra môi trường chạy ứng dụng. Vui "
-            "lòng khởi động quy trình với nút *Nạp Mô Hình AI* ở bảng trượt để bắt đầu sử dụng.")
         st.session_state["model_loaded"] = False
+        st.session_state["QA"] = None
 
     if not st.session_state["model_loaded"]:
-        # Initialize embeddings
-        EMBEDDINGS = initialize_component(
-            "EMBEDDINGS",
-            lambda: HuggingFaceInstructEmbeddings(
-                model_name=EMBEDDING_MODEL_NAME,
-                model_kwargs={"device": DEVICE_TYPE},
-                embed_instruction="Represent the document content for retrieval in Vietnamese:",
-                query_instruction="Represent the query content for retrieval in Vietnamese:"
-            )
-        )
-
-        # Initialize database
-        DB = initialize_component(
-            "DB",
-            lambda: Chroma(
-                persist_directory=PERSIST_DIRECTORY,
-                embedding_function=EMBEDDINGS,
-                client_settings=CHROMA_SETTINGS,
-            )
-        )
-
-        retrieval_method = st.radio("Chọn phương pháp truy vấn:",
-                                    ["similarity - tìm thông tin tương tự.", "mmr - tìm thông tin liên quan."])
-        # Lấy giá trị chính từ chuỗi vừa chọn bên trên
-        method_type = retrieval_method.split(" - ")[0]
-
-        top_k = st.number_input(
-            "Số lượng tài liệu tương tự sẽ được trả về (k):",
-            min_value=1,
-            max_value=50,
-            value=20,
-            step=1
-        )
-
-        fetch_k = st.number_input(
-            "Phạm vi tìm kiếm bao nhiêu mảnh tài liệu cho câu hỏi của bạn (fetch_k):",
-            min_value=10,
-            max_value=100,
-            value=50,
-            step=10
-        )
-
-        # Xử lý với việc người dùng chọn hai trường hợp để hỏi.
-        if method_type == "similarity":
-            # Thêm slider cho ngưỡng tương tự
-            score_threshold = st.slider(
-                "Ngưỡng điểm tương tự (score_threshold) quyết định độ chính xác của kết quả tìm kiếm. Giá trị càng "
-                "cao thì chỉ các tài liệu rất giống với câu hỏi mới được chọn.",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.75,
-                step=0.05
-            )
-            RETRIEVER = initialize_component(
-                "RETRIEVER",
-                lambda: DB.as_retriever(
-                    search_type="similarity",
-                    search_kwargs={"k": top_k, "fetch_k": fetch_k, "score_threshold": score_threshold}
-                )
-            )
-        else:
-            mmr_lambda = st.slider(
-                "Trọng số lambda điều chỉnh sự cân bằng giữa tìm kiếm thông tin tương tự và sự đa dạng trong các kết "
-                "quả:",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.5,
-                step=0.1
-            )
-            RETRIEVER = initialize_component(
-                "RETRIEVER",
-                lambda: DB.as_retriever(
-                    search_type="mmr",
-                    search_kwargs={"k": top_k, "fetch_k": fetch_k, "lambda": mmr_lambda}
+        try:
+            # Initialize embeddings
+            EMBEDDINGS = initialize_component(
+                "EMBEDDINGS",
+                lambda: HuggingFaceInstructEmbeddings(
+                    model_name=EMBEDDING_MODEL_NAME,
+                    model_kwargs={"device": DEVICE_TYPE},
+                    embed_instruction="Represent the document content for retrieval in Vietnamese:",
+                    query_instruction="Represent the query content for retrieval in Vietnamese:"
                 )
             )
 
-        # Initialize LLM
-        LLM = initialize_component("LLM", lambda: load_model(device_type=DEVICE_TYPE, model_id=MODEL_ID,
-                                                             model_basename=MODEL_BASENAME))
+            # Initialize database
+            DB = initialize_component(
+                "DB",
+                lambda: Chroma(
+                    persist_directory=PERSIST_DIRECTORY,
+                    embedding_function=EMBEDDINGS,
+                    client_settings=CHROMA_SETTINGS,
+                )
+            )
 
-        # Sử dụng prompt cho Qwen với lịch sử hội thoại
-        prompt, memory = create_prompt_template(system_prompt_setup=system_prompt, model_type="qwen")
-        if load_model_flag and "QA" not in st.session_state:
+            # Chọn phương pháp truy vấn
+            retrieval_method = st.radio(
+                "Chọn phương pháp truy vấn:",
+                ["similarity - tìm thông tin tương tự.", "mmr - tìm thông tin liên quan."]
+            )
+            method_type = retrieval_method.split(" - ")[0]
+
+            # Các tham số truy vấn
+            top_k = st.number_input(
+                "Số lượng tài liệu tương tự sẽ được trả về (k):",
+                min_value=1,
+                max_value=50,
+                value=20,
+                step=1
+            )
+            fetch_k = st.number_input(
+                "Phạm vi tìm kiếm bao nhiêu mảnh tài liệu cho câu hỏi của bạn (fetch_k):",
+                min_value=10,
+                max_value=100,
+                value=50,
+                step=10
+            )
+
+            # Xử lý tùy chọn similarity hoặc mmr
+            if method_type == "similarity":
+                score_threshold = st.slider(
+                    "Ngưỡng điểm tương tự (score_threshold):",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=0.75,
+                    step=0.05
+                )
+                RETRIEVER = initialize_component(
+                    "RETRIEVER",
+                    lambda: DB.as_retriever(
+                        search_type="similarity",
+                        search_kwargs={"k": top_k, "fetch_k": fetch_k, "score_threshold": score_threshold}
+                    )
+                )
+            else:
+                mmr_lambda = st.slider(
+                    "Trọng số lambda:",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=0.5,
+                    step=0.1
+                )
+                RETRIEVER = initialize_component(
+                    "RETRIEVER",
+                    lambda: DB.as_retriever(
+                        search_type="mmr",
+                        search_kwargs={"k": top_k, "fetch_k": fetch_k, "lambda": mmr_lambda}
+                    )
+                )
+
+            # Initialize LLM
+            LLM = initialize_component(
+                "LLM",
+                lambda: load_model(device_type=DEVICE_TYPE, model_id=MODEL_ID, model_basename=MODEL_BASENAME)
+            )
+
+            # Tạo PromptTemplate và Memory
+            prompt = create_prompt_template(system_prompt_setup=system_prompt, model_type="qwen", history=False)
+            memory = ConversationBufferMemory(input_key="question", memory_key="history")
+
+            # Tạo QA Chain
             st.session_state["QA"] = RetrievalQA.from_chain_type(
                 llm=LLM,
                 chain_type="stuff",
@@ -425,14 +432,16 @@ if load_model_flag:
                 return_source_documents=True,
                 chain_type_kwargs={"prompt": prompt, "memory": memory},
             )
-        QA = st.session_state["QA"]
 
-        # Đánh dấu mô hình đã được nạp
-        st.session_state["model_loaded"] = True
-
-        st.success("Mô hình đã được nạp thành công.")
+            # Đánh dấu mô hình đã được nạp
+            st.session_state["model_loaded"] = True
+            st.success("Mô hình đã được nạp thành công.")
+        except Exception as e:
+            st.error(f"Có lỗi xảy ra khi nạp mô hình: {str(e)}")
+            st.session_state["model_loaded"] = False
     else:
         st.info("Mô hình đã được nạp trước đó. Không cần nạp lại.")
+
 
 # ==========================================
 # 6. Xử lý đầu vào và xuất kết quả
@@ -441,8 +450,10 @@ if load_model_flag:
 
 # Process user input and display response chỉ khi QA được khởi tạo
 if submit_button:
-    if QA is None:
+    if not st.session_state.get("model_loaded", False):
         st.error("Mô hình chưa được tải. Vui lòng bật `Load Model` trong sidebar để sử dụng chức năng này.")
+    elif st.session_state.get("QA") is None:
+        st.error("QA chưa được khởi tạo. Vui lòng kiểm tra quá trình nạp mô hình.")
     elif user_query.strip():
         try:
             # Xử lý từ khóa bổ sung (nếu có)
@@ -456,7 +467,7 @@ if submit_button:
 
             # Gọi QA với truy vấn được nâng cấp
             with st.spinner("Đang xử lý câu hỏi của bạn..."):
-                response = QA(enhanced_query)
+                response = st.session_state["QA"](enhanced_query)  # Lấy QA từ session_state
 
             answer, docs = response["result"], response["source_documents"]
 
@@ -491,7 +502,7 @@ if submit_button:
 
 if st.button("Xuất lịch sử trò chuyện thành PDF"):
     if "chat_history" in st.session_state and st.session_state["chat_history"]:
-        session_id = datetime.now().strftime("%Y%m%d%H%M%S")  # Tạo ID phiên
+        session_id = datetime.datetime  # Tạo ID phiên
         pdf_path = export_to_pdf(session_id, st.session_state["chat_history"])
         st.success(f"Lịch sử trò chuyện đã được xuất ra PDF: {pdf_path}")
         with open(pdf_path, "rb") as file:
