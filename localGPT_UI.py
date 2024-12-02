@@ -19,10 +19,9 @@ from scripts.env_checking import system_check
 # Thêm đường dẫn gốc vào sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-system_prompt = """
-Bạn là một trợ lý thông minh với quyền truy cập vào các tài liệu ngữ cảnh. Bạn phải trả lời
-câu hỏi bằng tiếng Việt dựa trên ngữ cảnh được cung cấp. Không sử dụng thông tin bên ngoài.
-"""
+system_prompt = """You are a knowledgeable assistant with access to specific context documents. You must answer the
+questions only in Vietnamese language. You must answer questions based on the provided context only.
+If you cannot answer based on the context, inform the user politely. Do not use any external information."""
 
 # ===========================================
 # 1. Kiểm tra quyền truy cập (Mật khẩu và IP)
@@ -89,134 +88,100 @@ check_ip_whitelist()
 # 2. Tạo PromptTemplate cho các loại model
 # ========================================
 
-def create_prompt_template(system_prompt_setup=system_prompt, model_type=None, history=False):
-    if model_type == "llama":
+def create_prompt_template(system_prompt_setup=system_prompt, prompt_template_type=None, history=False):
+    if prompt_template_type == "llama":
         B_INST, E_INST = "[INST]", "[/INST]"
         B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
         SYSTEM_PROMPT = B_SYS + system_prompt_setup + E_SYS
-    elif model_type == "mistral":
+        if history:
+            instruction = """
+            Context: {history} \n {context}
+            User: {question}"""
+
+            prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
+            prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
+        else:
+            instruction = """
+            Context: {context}
+            User: {question}"""
+
+            prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
+            prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
+
+    elif prompt_template_type == "mistral":
         B_INST, E_INST = "<s>[INST] ", " [/INST]"
-        SYSTEM_PROMPT = system_prompt_setup
-    elif model_type == "qwen":
+        if history:
+            prompt_template = (
+                B_INST
+                + system_prompt_setup
+                + """
+
+            Context: {history} \n {context}
+            User: {question}"""
+                + E_INST
+            )
+            prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
+        else:
+            prompt_template = (
+                B_INST
+                + system_prompt_setup
+                + """
+
+            Context: {context}
+            User: {question}"""
+                + E_INST
+            )
+            prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
+
+    elif prompt_template_type == "qwen":
+        # Cấu trúc prompt cho Qwen
         B_INST, E_INST = "[INST]", "[/INST]"
         B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
         SYSTEM_PROMPT = B_SYS + system_prompt_setup + E_SYS
+        if history:
+            instruction = """
+            Context: {history} \n {context}
+            User: {question}"""
+
+            prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
+            prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
+        else:
+            instruction = """
+            Context: {context}
+            User: {question}"""
+
+            prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
+            prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
+
     else:
-        SYSTEM_PROMPT = system_prompt_setup
-        B_INST, E_INST = "", ""
+        # Default cấu trúc nếu không chọn model cụ thể
+        if history:
+            prompt_template = (
+                system_prompt_setup
+                + """
 
-    # Điều chỉnh nội dung instruction dựa trên trạng thái của history
-    if history:
-        instruction = """
-        Context: {history} \n {context}
-        User: {question}"""
-        input_variables = ["history", "context", "question"]
-    else:
-        instruction = """
-        Context: {context}
-        User: {question}"""
-        input_variables = ["context", "question"]
+            Context: {history} \n {context}
+            User: {question}
+            Answer:"""
+            )
+            prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
+        else:
+            prompt_template = (
+                system_prompt_setup
+                + """
 
-    # Kết hợp template
-    prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
+            Context: {context}
+            User: {question}
+            Answer:"""
+            )
+            prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
 
-    return PromptTemplate(input_variables=input_variables, template=prompt_template)
+    memory = ConversationBufferMemory(input_key="question", memory_key="history")
 
-
-# def model_memory(system_prompt_setup=system_prompt, prompt_template_type=None, history=False):
-#     if prompt_template_type == "llama":
-#         B_INST, E_INST = "[INST]", "[/INST]"
-#         B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
-#         SYSTEM_PROMPT = B_SYS + system_prompt_setup + E_SYS
-#         if history:
-#             instruction = """
-#             Context: {history} \n {context}
-#             User: {question}"""
-#
-#             prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
-#             prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
-#         else:
-#             instruction = """
-#             Context: {context}
-#             User: {question}"""
-#
-#             prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
-#             prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
-#
-#     elif prompt_template_type == "mistral":
-#         B_INST, E_INST = "<s>[INST] ", " [/INST]"
-#         if history:
-#             prompt_template = (
-#                 B_INST
-#                 + system_prompt_setup
-#                 + """
-#
-#             Context: {history} \n {context}
-#             User: {question}"""
-#                 + E_INST
-#             )
-#             prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
-#         else:
-#             prompt_template = (
-#                 B_INST
-#                 + system_prompt_setup
-#                 + """
-#
-#             Context: {context}
-#             User: {question}"""
-#                 + E_INST
-#             )
-#             prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
-#
-#     elif prompt_template_type == "qwen":
-#         # Cấu trúc prompt cho Qwen
-#         B_INST, E_INST = "[INST]", "[/INST]"
-#         B_SYS, E_SYS = "<<SYS>>\n", "\n<</SYS>>\n\n"
-#         SYSTEM_PROMPT = B_SYS + system_prompt_setup + E_SYS
-#         if history:
-#             instruction = """
-#             Context: {history} \n {context}
-#             User: {question}"""
-#
-#             prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
-#             prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
-#         else:
-#             instruction = """
-#             Context: {context}
-#             User: {question}"""
-#
-#             prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
-#             prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
-#
-#     else:
-#         # Default cấu trúc nếu không chọn model cụ thể
-#         if history:
-#             prompt_template = (
-#                 system_prompt_setup
-#                 + """
-#
-#             Context: {history} \n {context}
-#             User: {question}
-#             Answer:"""
-#             )
-#             prompt = PromptTemplate(input_variables=["history", "context", "question"], template=prompt_template)
-#         else:
-#             prompt_template = (
-#                 system_prompt_setup
-#                 + """
-#
-#             Context: {context}
-#             User: {question}
-#             Answer:"""
-#             )
-#             prompt = PromptTemplate(input_variables=["context", "question"], template=prompt_template)
-#
-#     memory = ConversationBufferMemory(input_key="question", memory_key="history")
-#
-#     return (
-#         prompt,
-#         memory,
-#     )
+    return (
+        prompt,
+        memory,
+    )
 
 
 # ======================================
@@ -421,8 +386,9 @@ if load_model_flag:
             )
 
             # Tạo PromptTemplate và Memory
-            prompt = create_prompt_template(system_prompt_setup=system_prompt, model_type="qwen", history=False)
-            memory = ConversationBufferMemory(input_key="question", memory_key="history")
+            prompt, memory = create_prompt_template(system_prompt_setup=system_prompt,
+                                                    prompt_template_type="qwen", history=False)
+
 
             # Tạo QA Chain
             st.session_state["QA"] = RetrievalQA.from_chain_type(
