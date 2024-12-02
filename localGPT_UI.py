@@ -3,12 +3,16 @@ import os
 import socket
 import torch
 from flask import request
-from streamlit.web.server.server import Server
+
 import streamlit as st
+from streamlit.web.server.server import Server
+
 from localGPT_app.run_localGPT import load_model
-from langchain.vectorstores import Chroma
+from localGPT_app.utils import export_to_pdf
 from scripts.env_checking import system_check
 from config.configurations import CHROMA_SETTINGS, EMBEDDING_MODEL_NAME, PERSIST_DIRECTORY, MODEL_ID, MODEL_BASENAME
+
+from langchain.vectorstores import Chroma
 from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
@@ -469,7 +473,33 @@ if submit_button:
                         st.text(doc.page_content)
                 else:
                     st.info("No similar documents found.")
+
+            # Lưu lịch sử vào session
+            if "chat_history" not in st.session_state:
+                st.session_state["chat_history"] = []
+            st.session_state["chat_history"].append((user_query, answer))
+
         except Exception as e:
-            st.error(f"An error occurred while processing the query: {str(e)}")
+            st.error(f"Có lỗi xảy ra trong khi xử lý Query: {str(e)}")
     else:
         st.warning("Vui lòng nhập câu hỏi trước khi gửi.")
+
+
+# =========================================
+# 7. Xuất lịch sử trò chuyện thành PDF
+# =========================================
+
+if st.button("Xuất lịch sử trò chuyện thành PDF"):
+    if "chat_history" in st.session_state and st.session_state["chat_history"]:
+        session_id = datetime.now().strftime("%Y%m%d%H%M%S")  # Tạo ID phiên
+        pdf_path = export_to_pdf(session_id, st.session_state["chat_history"])
+        st.success(f"Lịch sử trò chuyện đã được xuất ra PDF: {pdf_path}")
+        with open(pdf_path, "rb") as file:
+            st.download_button(
+                label="Tải xuống PDF",
+                data=file,
+                file_name=f"chat_session_{session_id}.pdf",
+                mime="application/pdf"
+            )
+    else:
+        st.error("Không có lịch sử trò chuyện để xuất.")

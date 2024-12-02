@@ -1,6 +1,7 @@
 import os
 import csv
 from datetime import datetime
+from fpdf import FPDF
 from config.configurations import EMBEDDING_MODEL_NAME
 from langchain.embeddings import HuggingFaceInstructEmbeddings
 from langchain.embeddings import HuggingFaceBgeEmbeddings
@@ -28,6 +29,44 @@ def log_to_csv(question, answer):
         writer = csv.writer(file)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         writer.writerow([timestamp, question, answer])
+
+
+def export_to_pdf(session_id, questions_answers):
+    """
+    Xuất lịch sử cuộc trò chuyện ra file PDF.
+
+    :param session_id: ID phiên trò chuyện.
+    :param questions_answers: Danh sách [(câu hỏi, câu trả lời)].
+    :return: Đường dẫn tới file PDF đã tạo.
+    """
+    # Đường dẫn file PDF
+    output_dir = "local_chat_history"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    output_path = os.path.join(output_dir, f"chat_session_{session_id}.pdf")
+
+    # Tạo file PDF
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+
+    # Thêm tiêu đề
+    pdf.set_font("Arial", style="B", size=16)
+    pdf.cell(200, 10, txt=f"Lịch sử trò chuyện - Session {session_id}", ln=True, align="C")
+    pdf.ln(10)
+
+    # Thêm nội dung
+    for idx, (question, answer) in enumerate(questions_answers, start=1):
+        pdf.set_font("Arial", style="B", size=12)
+        pdf.multi_cell(0, 10, txt=f"Q{idx}: {question}")
+        pdf.set_font("Arial", size=12)
+        pdf.multi_cell(0, 10, txt=f"A{idx}: {answer}")
+        pdf.ln(5)
+
+    # Lưu file
+    pdf.output(output_path)
+    return output_path
 
 
 def get_embeddings(device_type="cuda"):
