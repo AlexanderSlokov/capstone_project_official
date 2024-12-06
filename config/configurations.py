@@ -31,7 +31,7 @@ CHROMA_SETTINGS = Settings(
 
 # Context Window and Max New Tokens
 CONTEXT_WINDOW_SIZE = 4096
-MAX_NEW_TOKENS = 128*5
+MAX_NEW_TOKENS = 512
 
 # If you get a "not enough space in the buffer" error, you should reduce the values below,
 # start with half of the original values and keep halving the value until the error stops appearing

@@ -21,9 +21,9 @@ from scripts.env_checking import system_check
 # Thêm đường dẫn gốc vào sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-system_prompt = """You are a knowledgeable assistant with access to specific context documents. You must answer the
-questions only in Vietnamese language. You must answer questions based on the provided context only.
-If you cannot answer based on the context, inform the user politely. Do not use any external information."""
+system_prompt = """Bạn là trợ lý có quyền truy cập vào các tài liệu ngữ cảnh cụ thể. Chỉ trả lời các
+câu hỏi bằng tiếng Việt, dựa trên ngữ cảnh được cung cấp. Nếu bạn không thể trả lời dựa trên ngữ cảnh,
+hãy thông báo cho người dùng một cách lịch sự. Không sử dụng bất kỳ thông tin bên ngoài nào."""
 
 
 # ===========================================
@@ -255,7 +255,7 @@ def initialize_embeddings_and_db():
 
 
 @st.cache_resource
-def create_cached_retriever(_hf_embeddings, _chroma_db, _method_type, _top_k, _fetch_k, score_threshold=None,
+def create_cached_retriever(_hf_embeddings, _chroma_db, _method_type, _top_k, _fetch_k, _score_threshold=None,
                             _mmr_lambda=None):
     # Đổi tên `retriever` thành `cached_retriever` để không shadow biến ngoài hàm
     cached_retriever = None  # Đảm bảo khởi tạo biến với giá trị mặc định
@@ -265,7 +265,7 @@ def create_cached_retriever(_hf_embeddings, _chroma_db, _method_type, _top_k, _f
             search_kwargs={
                 "k": _top_k,
                 "fetch_k": _fetch_k,
-                "score_threshold": score_threshold,
+                "score_threshold": _score_threshold,
             },
         )
     elif _method_type == "mmr":
@@ -372,7 +372,7 @@ try:
 
     retriever = None
     if method_type == "similarity":
-        score_threshold = st.slider(
+        input_score_threshold = st.slider(
             "Ngưỡng điểm tương tự (score_threshold):",
             min_value=0.0,
             max_value=1.0,
@@ -385,7 +385,7 @@ try:
             _method_type=method_type,
             _top_k=top_k,
             _fetch_k=fetch_k,
-            score_threshold=score_threshold,
+            _score_threshold=input_score_threshold,
         )
     elif method_type == "mmr":
         mmr_lambda = st.slider(

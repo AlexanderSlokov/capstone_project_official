@@ -49,5 +49,5 @@ def get_embeddings(device_type="cuda"):
     else:
         return HuggingFaceEmbeddings(
             model_name=EMBEDDING_MODEL_NAME,
-            model_kwargs={"device": device_type, "trust_remote_code": True},
+            model_kwargs={"device": device_type},
         )

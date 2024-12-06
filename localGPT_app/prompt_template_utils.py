@@ -2,7 +2,7 @@ from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 
 # System prompt dành cho RAG
-system_prompt = """You are a knowledgeable assistant with access to specific context documents. You must answer the
+system_prompt = """You are an assistant with access to specific context documents. You must answer the
 questions only in Vietnamese language. You must answer questions based on the provided context only.
 If you cannot answer based on the context, inform the user politely. Do not use any external information."""
 
