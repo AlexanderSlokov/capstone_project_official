@@ -38,7 +38,7 @@ MAX_NEW_TOKENS = 512
 MODEL_ID = "Qwen/Qwen2.5-7B-Instruct-GPTQ-Int4"
 MODEL_BASENAME = "model.safetensors"
 EMBEDDING_MODEL_NAME = "intfloat/multilingual-e5-large"
-N_GPU_LAYERS = 28  # Điều chỉnh số lượng layer GPU theo khả năng của card đồ họa
+N_GPU_LAYERS = 32  # Điều chỉnh số lượng layer GPU theo khả năng của card đồ họa
 N_BATCH = 512  # Điều chỉnh kích thước batch size phù hợp với dung lượng VRAM
 
 # From experimenting with the Llama-2-7B-Chat-GGML model on 8GB VRAM, these values work:

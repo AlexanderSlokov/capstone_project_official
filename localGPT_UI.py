@@ -1,5 +1,4 @@
 import csv
-
 import os
 import socket
 import sys
@@ -223,7 +222,7 @@ else:
     DEVICE_TYPE = "cpu"
 
 # =======================================
-# Hàm cache để tải mô hình một lần duy nhất
+# Hàm cache để tải một lần duy nhất
 # =======================================
 model_lock = threading.Lock()
 
@@ -280,54 +279,76 @@ def create_cached_retriever(_hf_embeddings, _chroma_db, _method_type, _top_k, _f
     return cached_retriever
 
 
+@st.cache_data
+@st.cache_data
+def perform_environment_check():
+    """Thực hiện kiểm tra môi trường thông qua system_check và lưu kết quả."""
+    # Gọi đến system_check() để thực hiện tất cả các kiểm tra
+    results = system_check()
+    return results
+
+
 # ============================================
 # 4. Phần chính của giao diện ứng dụng Streamlit
 # ============================================
 
 
 # Sidebar bên cạnh trái.
+# Sidebar for system environment checks
 with st.sidebar:
-    st.title("🤗💬 Trợ lý truy vấn văn bản của bạn. ")
-    st.title("Bảo mật và riêng tư, hoàn toàn nội bộ.")
-
-    # Hiển thị kết quả kiểm tra môi trường
+    st.title("🤗💬 Trợ lý truy vấn văn bản của bạn.")
     st.subheader("🔍 Kiểm tra môi trường...")
 
-    # Kiểm tra nếu `env_results` đã tồn tại trong session_state
+    # Kiểm tra hệ thống nếu chưa có kết quả trong session_state
     if "env_results" not in st.session_state:
-        st.session_state["env_results"] = system_check()  # Lưu kết quả vào session_state
+        st.session_state["env_results"] = system_check()
 
-    # Lấy kết quả từ session_state
-    env_results = st.session_state["env_results"]
+    env_results = st.session_state["env_results"]  # Lấy kết quả đã lưu
+
+    # Hiển thị thông tin môi trường
     if env_results:
-        cuda_available, total_vram, cuda_version = env_results
-        st.write(f"CUDA khả dụng: {'Có' if cuda_available else 'Không'}")
-        st.write(f"Tổng dung lượng VRAM: {total_vram:.2f} GB" if total_vram else "Không thể lấy thông tin VRAM")
-        st.write(f"Phiên bản CUDA: {cuda_version}")
-    else:
-        st.error("Không thể thực hiện kiểm tra hệ thống!")
+        st.write(f"**CUDA khả dụng:** {'Có' if env_results.get('CUDA Available') else 'Không'}")
+        st.write(f"**Phiên bản CUDA:** {env_results.get('CUDA Version', 'Không xác định')}")
 
-    st.markdown(
-        """
-        ## About
-        Ứng dụng này là một LLM-powered chatbot được xây dựng trên nền tảng của:
-        - [Streamlit](https://streamlit.io/)
-        - [LangChain](https://python.langchain.com/)
-        - [LocalGPT](https://github.com/PromtEngineer/localGPT)
-        """
-    )
+        st.write(f"**VRAM:** {env_results['VRAM']:.2f} GB" if env_results.get("VRAM") else "Không xác định")
+        st.write(f"**RAM:** {env_results['RAM']:.2f} GB" if env_results.get('RAM') else "Không xác định")
+
+        st.write(f"**CPU:** {env_results['CPU'].get('CPU', 'Không xác định')}")
+        st.write(
+            f"**Intel Hyper-Threading:** {'Có' if env_results['CPU'].get('Intel Hyper-Threading') else 'Không'}"
+        )
+        st.write(f"**CUDA Compute Capability:** {env_results.get('CUDA Capability', 'Không xác định')}")
+
+        st.write(f"**Đường dẫn Conda CUDA:** {env_results.get('Conda Path', 'Không tìm thấy')}")
+        st.write(f"**Phiên bản Conda CUDA:** {env_results.get('Conda Version', 'Không tìm thấy')}")
+        st.write(f"**NVCC Version:** {env_results.get('NVCC Version', 'Không tìm thấy')}")
+
+        # Hiển thị yêu cầu mô hình
+        model_req = env_results.get("Model Requirements", {})
+        st.subheader("🧠 Yêu cầu mô hình:")
+        if model_req:
+            st.write(f"**VRAM cần thiết:** {model_req.get('VRAM Required', 'Không xác định')} GB")
+            st.write(f"**RAM cần thiết:** {model_req.get('RAM Required', 'Không xác định')} GB")
+            st.write(f"**VRAM đủ:** {'Có' if model_req.get('Sufficient VRAM') else 'Không'}")
+            st.write(f"**RAM đủ:** {'Có' if model_req.get('Sufficient RAM') else 'Không'}")
+            st.write(f"**Lớp GPU đề xuất:** {model_req.get('Suggested GPU Layers', 'Không xác định')}")
+            st.write(f"**Kích thước batch đề xuất:** {model_req.get('Suggested Batch Size', 'Không xác định')}")
+        else:
+            st.write("Không đủ thông tin để kiểm tra yêu cầu mô hình.")
+    else:
+        st.error("Không thể thực hiện kiểm tra môi trường!")
 
     add_vertical_space(5)
     st.write("Ứng dụng này được tạo ra với ❤️ bởi [Prompt Engineer](https://youtube.com/@engineerprompt)")
     st.write("Hoàn thiện và tối ưu dành cho người Việt ️bởi [Đinh Tấn Dũng - Alexander Slokov]("
              "https://github.com/AlexanderSlokov)")
-    st.write("Dựa trên công nghệ của:")
-    st.markdown("- [Streamlit](https://streamlit.io/) - Framework xây dựng ứng dụng web Python dễ dàng.")
-    st.markdown("- [LangChain](https://python.langchain.com/) - Công cụ hỗ trợ xây dựng hệ thống LLM hiệu quả.")
-    st.markdown("- [HuggingFace](https://huggingface.co/) - Cộng đồng phát triển mô hình xử lý ngôn ngữ tiên tiến.")
-    st.markdown("- [ChromaDB](https://www.trychroma.com/) - Bộ máy vector database hiện đại.")
-    st.markdown("- [LocalGPT](https://github.com/PromtEngineer/localGPT) - Khởi nguồn của ứng dụng này.")
-    add_vertical_space(2)
+    # st.write("Dựa trên công nghệ của:")
+    # st.markdown("- [Streamlit](https://streamlit.io/) - Framework xây dựng ứng dụng web Python dễ dàng.")
+    # st.markdown("- [LangChain](https://python.langchain.com/) - Công cụ hỗ trợ xây dựng hệ thống LLM hiệu quả.")
+    # st.markdown("- [HuggingFace](https://huggingface.co/) - Cộng đồng phát triển mô hình xử lý ngôn ngữ tiên tiến.")
+    # st.markdown("- [ChromaDB](https://www.trychroma.com/) - Bộ máy vector database hiện đại.")
+    # st.markdown("- [LocalGPT](https://github.com/PromtEngineer/localGPT) - Khởi nguồn của ứng dụng này.")
+    # add_vertical_space(2)
     st.write("Cảm ơn tất cả các công cụ mã nguồn mở và cộng đồng phát triển đã hỗ trợ chúng tôi tạo nên ứng dụng này.")
 
 # Main localGPT_app title
