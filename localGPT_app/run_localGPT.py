@@ -279,7 +279,7 @@ def main(device_type, show_sources, use_history, model_type, save_qa):
     logging.info(f"Use history set to: {use_history}")
 
     if not os.path.exists(MODELS_PATH):
-        os.mkdir(MODELS_PATH)
+        os.makedirs(MODELS_PATH)
 
     # Khởi tạo QA pipeline với bộ lọc và từ khóa
     qa = retrieval_qa_pipline_with_keyword(device_type, use_history, promptTemplate_type=model_type)

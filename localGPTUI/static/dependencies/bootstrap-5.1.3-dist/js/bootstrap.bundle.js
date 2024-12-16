@@ -2759,7 +2759,7 @@
         }
       } // $FlowFixMe[incompatible-cast]: force type refinement, we compare offsetParent with window above, but Flow doesn't detect it
 
-      offsetParent = offsetParent;
+      offsetParent = _ref2.offsetParent;
 
       if (
         placement === top ||
