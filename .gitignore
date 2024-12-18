@@ -2,7 +2,8 @@
 /.vscode
 /DB
 /models
-
+/model_cache
+/model_cache/huggingface
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -167,3 +168,4 @@ cython_debug/
 #MacOS
 .DS_Store
 SOURCE_DOCUMENTS/.DS_Store
+

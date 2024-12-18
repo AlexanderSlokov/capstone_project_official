@@ -1,4 +1,8 @@
 *
 !*.py
+!config/
+!localGPT_app/
+!scripts/
+!SOURCE_DOCUMENTS/
 !requirements.txt
-!SOURCE_DOCUMENTS
+!localGPT_UI.py

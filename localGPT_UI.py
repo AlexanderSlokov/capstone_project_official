@@ -1,6 +1,6 @@
 import csv
 import os
-import socket
+# import socket
 import sys
 import threading
 
@@ -57,25 +57,25 @@ def check_password():
     return True  # Đã xác thực
 
 
-def get_client_ip():
-    """Lấy địa chỉ IP của host."""
-    try:
-        # Trả về địa chỉ IP của host trong mạng LAN
-        hostname = socket.gethostname()
-        client_ip = socket.gethostbyname(hostname)
-        return client_ip
-    except Exception as get_client_ip_exeption:
-        return f"Unknown IP ({get_client_ip_exeption})"
+# def get_client_ip():
+#     """Lấy địa chỉ IP của host."""
+#     try:
+#         # Trả về địa chỉ IP của host trong mạng LAN
+#         hostname = socket.gethostname()
+#         client_ip = socket.gethostbyname(hostname)
+#         return client_ip
+#     except Exception as get_client_ip_exeption:
+#         return f"Unknown IP ({get_client_ip_exeption})"
 
 
-def check_ip_whitelist():
-    """Hàm kiểm tra IP người dùng với logic cải tiến."""
-    allowed_ips = ["172.25.224.1", "127.0.0.1"]  # Thêm IP cho phép tại đây
-    client_ip = get_client_ip()
-
-    if client_ip not in allowed_ips:
-        st.error(f"Truy cập bị từ chối: IP của bạn không được phép truy cập.")
-        st.stop()
+# def check_ip_whitelist():
+#     """Hàm kiểm tra IP người dùng với logic cải tiến."""
+#     allowed_ips = ["172.25.224.1", "127.0.0.1", "0.0.0.0"]  # Thêm IP cho phép tại đây
+#     client_ip = get_client_ip()
+#
+#     if client_ip not in allowed_ips:
+#         st.error(f"Truy cập bị từ chối: IP của bạn không được phép truy cập.")
+#         st.stop()
 
 
 # Xác thực mật khẩu trước
@@ -83,7 +83,7 @@ if not check_password():
     st.stop()
 
 # Kiểm tra quyền truy cập theo IP sau khi nhập đúng mật khẩu
-check_ip_whitelist()
+# check_ip_whitelist()
 
 
 # ========================================

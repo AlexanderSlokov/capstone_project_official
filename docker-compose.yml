@@ -1,0 +1,26 @@
+services:
+  localgpt:
+    runtime: nvidia
+    image: localgpt:latest
+
+    container_name: localgpt_app
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    ports:
+      - "8501:8501"
+
+    volumes:
+      - .:/app                             # Mount toàn bộ thư mục hiện tại vào /app
+      - ./model_cache:/root/.cache         # Mount cache để lưu mô hình bên ngoài
+
+    working_dir: /app                      # Thiết lập thư mục làm việc là /app
+
+    environment:
+      - STREAMLIT_SERVER_RUN_ON_SAVE=false
+      - STREAMLIT_BROWSER_GATHERUSAGESTATS=false
+      - CUDA_VISIBLE_DEVICES=0
+
+
