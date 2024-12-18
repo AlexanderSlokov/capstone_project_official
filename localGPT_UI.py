@@ -205,7 +205,7 @@ def add_vertical_space(amount):
 
 def clean_response(response_text):
     # Loại bỏ các thẻ không mong muốn
-    unwanted_tags = ["[OUT]", "[INVISIBLE TEXT]", "<<BEGIN>>", "<<END>>"]
+    unwanted_tags = ["[OUT]", "[INVISIBLE TEXT]", "<<BEGIN>>", "<<END>>", "<<RESET>>", "[ANS]", "[ANSWER]"]
     for tag in unwanted_tags:
         response_text = response_text.replace(tag, "")
     # Xóa các khoảng trắng dư thừa
