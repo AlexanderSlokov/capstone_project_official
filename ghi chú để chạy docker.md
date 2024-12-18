@@ -91,14 +91,14 @@ docker run -it --rm localgpt:latest python3.10 -c "import torch; print(torch.cud
 
 ### **6. Tóm tắt các lệnh Docker**
 
-| **Tác vụ**                        | **Lệnh Docker**                                                                                         |
-|----------------------------------|---------------------------------------------------------------------------------------------------------|
-| Build Docker Image               | `$env:DOCKER_BUILDKIT=1; docker build . -t localgpt:latest`                                             |
-| Chạy Streamlit (GPU)             | `docker run -it --rm --gpus=all -p 8501:8501 -v ${PWD}:/app -w /app localgpt:latest`                                                |
-| Chạy Streamlit (CPU)             | `docker run -it --rm -e device_type=cpu -p 8501:8501 localgpt:latest`                                   |
-| Chạy ingest.py (GPU)             | `docker run -it --rm --gpus=all localgpt:latest python3.10 localGPT_app/ingest.py --device_type cuda`   |
+| **Tác vụ**                        | **Lệnh Docker**                                                                                        |
+|----------------------------------|--------------------------------------------------------------------------------------------------------|
+| Build Docker Image               | `$env:DOCKER_BUILDKIT=1; docker build . -t localgpt:latest`                                            |
+| Chạy Streamlit (GPU)             | `docker run -it --rm --gpus=all -p 8501:8501 -v ${PWD}:/app -w /app localgpt:latest`                                               |
+| Chạy Streamlit (CPU)             | `docker run -it --rm -e device_type=cpu -p 8501:8501 localgpt:latest`                                  |
+| Chạy ingest.py (GPU)             | `docker exec -it localgpt_app python3.10 -m localGPT_app.ingest --device_type cuda`   |
 | Chạy ingest.py (CPU)             | `docker run -it --rm -e device_type=cpu localgpt:latest python3.10 localGPT_app/ingest.py --device_type cpu` |
-| Kiểm tra GPU và PyTorch          | `docker run -it --rm localgpt:latest python3.10 -c "import torch; print(torch.cuda.is_available())"`    |
+| Kiểm tra GPU và PyTorch          | `docker run -it --rm localgpt:latest python3.10 -c "import torch; print(torch.cuda.is_available())"`   |
 
 ---
 

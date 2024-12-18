@@ -435,7 +435,9 @@ try:
             chain_type="stuff",
             retriever=retriever,
             return_source_documents=True,
-            chain_type_kwargs={"prompt": prompt, "memory": memory},
+            chain_type_kwargs={
+                "prompt": prompt,
+                "memory": memory},
         )
         st.session_state["retriever"] = retriever
         st.success("QA Chain đã được khởi tạo!")
